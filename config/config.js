@@ -7,7 +7,8 @@ module.exports = {
     // 连接池配置
     collections:{
       events:'events',
-      users:'users'
+      users:'users',
+      permissions: 'permissions' // 权限集合
     },
     options: {
       useNewUrlParser: true,

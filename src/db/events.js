@@ -23,7 +23,7 @@ class EventService {
     const usersCollection = db.collection(this.collections.users);
 
     // 字段校验
-    const requiredFields = ['id', 'user', 'opts', 'code', 'sig', 'created_at'];
+    const requiredFields = ['id', 'user', 'ops', 'code', 'sig', 'created_at'];
     const missingFields = requiredFields.filter(field => !event[field]);
     if (missingFields.length > 0) {
       throw new Error(`缺少必要字段: ${missingFields.join(', ')}`);
@@ -46,7 +46,7 @@ class EventService {
     const dataToSign = [
       event.id,
       event.user,
-      event.opts,
+      event.ops,
       event.code,
       JSON.stringify(event.data),
       event.created_at
@@ -66,7 +66,7 @@ class EventService {
     const eventDoc = {
       eventId: event.id,
       user: event.user,
-      opts: event.opts,
+      ops: event.ops,
       code: event.code,
       sig: event.sig,
       data: event.data,

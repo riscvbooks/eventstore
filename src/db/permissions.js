@@ -4,6 +4,7 @@ const config = require('../../config/config');
 const { ec } = require('elliptic');
 const crypto = require('crypto');
 const userService = require('./users'); // 引入用户服务
+const logger = require('../utils/logger'); // 引入日志模块 
 
 class PermissionService {
   constructor() {
@@ -30,11 +31,15 @@ class PermissionService {
       const dataHash = crypto.createHash('sha256')
         .update(JSON.stringify(data))
         .digest('hex');
-      
+
       const adminKey = this.ec.keyFromPublic(this.adminPubkey, 'hex');
-      return adminKey.verify(dataHash, sig);
+      const isValid = adminKey.verify(dataHash, sig);
+      if (!isValid) {
+        logger.error('管理员签名验证失败，数据:', data);
+      }
+      return isValid;
     } catch (error) {
-      console.error('管理员签名验证失败:', error);
+      logger.error('管理员签名验证失败:', error);
       return false;
     }
   }
@@ -53,6 +58,7 @@ class PermissionService {
     // 检查是否已初始化
     const count = await permissionsCollection.countDocuments();
     if (count > 0) {
+      logger.info('默认权限已初始化，无需重复操作');
       throw new Error('默认权限已初始化，无需重复操作');
     }
 
@@ -82,8 +88,14 @@ class PermissionService {
       updatedAt: new Date()
     }));
 
-    await permissionsCollection.insertMany(permissionsWithTime);
-    return permissionsWithTime;
+    try {
+      await permissionsCollection.insertMany(permissionsWithTime);
+      logger.info('默认权限初始化成功');
+      return permissionsWithTime;
+    } catch (error) {
+      logger.error('默认权限初始化失败:', error);
+      throw new Error('默认权限初始化失败');
+    }
   }
 
   // 为用户分配权限（需管理员签名）
@@ -95,6 +107,7 @@ class PermissionService {
     // 1. 验证权限存在
     const permission = await permissionsCollection.findOne({ name: permissionName });
     if (!permission) {
+      logger.error(`权限 ${permissionName} 不存在`);
       throw new Error(`权限 ${permissionName} 不存在`);
     }
 
@@ -106,17 +119,29 @@ class PermissionService {
       timestamp: new Date().toISOString()
     };
     if (!await this.verifyAdminSignature(assignData, adminSig)) {
+      logger.error('管理员签名验证失败，无法分配权限');
       throw new Error('管理员签名验证失败，无法分配权限');
     }
 
     // 3. 为用户添加权限（用户表中存储权限ID数组）
-    return usersCollection.updateOne(
-      { pubkey: userId }, // 以 pubkey 作为用户唯一标识
-      { 
-        $addToSet: { permissions: permission._id }, // 避免重复添加
-        $set: { updatedAt: new Date() }
+    try {
+      const result = await usersCollection.updateOne(
+        { pubkey: userId }, // 以 pubkey 作为用户唯一标识
+        {
+          $addToSet: { permissions: permission._id }, // 避免重复添加
+          $set: { updatedAt: new Date() }
+        }
+      );
+      if (result.modifiedCount === 0) {
+        logger.info(`用户 ${userId} 已拥有权限 ${permissionName}`);
+      } else {
+        logger.info(`成功为用户 ${userId} 分配权限 ${permissionName}`);
       }
-    );
+      return result;
+    } catch (error) {
+      logger.error(`为用户 ${userId} 分配权限 ${permissionName} 失败:`, error);
+      throw new Error(`为用户 ${userId} 分配权限 ${permissionName} 失败`);
+    }
   }
 
   // 撤销用户权限（需管理员签名）
@@ -128,6 +153,7 @@ class PermissionService {
     // 1. 验证权限存在
     const permission = await permissionsCollection.findOne({ name: permissionName });
     if (!permission) {
+      logger.error(`权限 ${permissionName} 不存在`);
       throw new Error(`权限 ${permissionName} 不存在`);
     }
 
@@ -139,17 +165,29 @@ class PermissionService {
       timestamp: new Date().toISOString()
     };
     if (!await this.verifyAdminSignature(revokeData, adminSig)) {
+      logger.error('管理员签名验证失败，无法撤销权限');
       throw new Error('管理员签名验证失败，无法撤销权限');
     }
 
     // 3. 从用户移除权限
-    return usersCollection.updateOne(
-      { pubkey: userId },
-      { 
-        $pull: { permissions: permission._id },
-        $set: { updatedAt: new Date() }
+    try {
+      const result = await usersCollection.updateOne(
+        { pubkey: userId },
+        {
+          $pull: { permissions: permission._id },
+          $set: { updatedAt: new Date() }
+        }
+      );
+      if (result.modifiedCount === 0) {
+        logger.info(`用户 ${userId} 未拥有权限 ${permissionName}`);
+      } else {
+        logger.info(`成功撤销用户 ${userId} 的权限 ${permissionName}`);
       }
-    );
+      return result;
+    } catch (error) {
+      logger.error(`撤销用户 ${userId} 的权限 ${permissionName} 失败:`, error);
+      throw new Error(`撤销用户 ${userId} 的权限 ${permissionName} 失败`);
+    }
   }
 
   // 获取用户所有权限
@@ -164,23 +202,39 @@ class PermissionService {
       { projection: { permissions: 1 } }
     );
     if (!user) {
+      logger.error(`用户 ${userId} 不存在`);
       throw new Error(`用户 ${userId} 不存在`);
     }
 
     // 2. 获取权限详情
     if (!user.permissions || user.permissions.length === 0) {
+      logger.info(`用户 ${userId} 没有任何权限`);
       return []; // 无权限
     }
 
-    return permissionsCollection.find({
-      _id: { $in: user.permissions }
-    }).toArray();
+    try {
+      const permissions = await permissionsCollection.find({
+        _id: { $in: user.permissions }
+      }).toArray();
+      logger.info(`成功获取用户 ${userId} 的权限`);
+      return permissions;
+    } catch (error) {
+      logger.error(`获取用户 ${userId} 的权限失败:`, error);
+      throw new Error(`获取用户 ${userId} 的权限失败`);
+    }
   }
 
   // 检查用户是否有特定权限
   async hasPermission(userId, permissionName) {
-    const permissions = await this.getUserPermissions(userId);
-    return permissions.some(perm => perm.name === permissionName);
+    try {
+      const permissions = await this.getUserPermissions(userId);
+      const hasPerm = permissions.some(perm => perm.name === permissionName);
+      logger.info(`用户 ${userId} 是否拥有权限 ${permissionName}: ${hasPerm}`);
+      return hasPerm;
+    } catch (error) {
+      logger.error(`检查用户 ${userId} 是否拥有权限 ${permissionName} 失败:`, error);
+      throw new Error(`检查用户 ${userId} 是否拥有权限 ${permissionName} 失败`);
+    }
   }
 }
 
