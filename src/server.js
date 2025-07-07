@@ -1,6 +1,6 @@
 // src/server.js
 const WebSocket = require('ws');
-const { v4: uuidv4 } = require('uuid'); // 用于生成唯一ID
+ 
 const EventService = require('./db/events');
 const UserService = require('./db/users');
 const PermissionService = require('./db/permissions');
@@ -9,7 +9,6 @@ class WebSocketServer {
   constructor(port = 8080) {
     this.port = port;
     this.wss = null;
-    this.clients = new Map(); // 使用Map存储客户端连接，便于管理
     this.eventService = new EventService();
     this.userService = new UserService();
     this.permissionService = new PermissionService();
@@ -35,34 +34,20 @@ class WebSocketServer {
 
   // 处理新客户端连接
   handleConnection(ws, req) {
-    // 生成唯一客户端ID
-    const clientId = uuidv4();
-
-    // 记录客户端信息
-    const clientInfo = {
-      id: clientId,
-      ip: req.socket.remoteAddress,
-      connectionTime: new Date(),
-      ws: ws
-    };
-
-    // 存储客户端连接
-    this.clients.set(clientId, clientInfo);
-    console.log(`新客户端连接: ${clientId} (${clientInfo.ip})`);
-    console.log(`当前连接数: ${this.clients.size}`);
+ 
 
     // 处理接收到的消息
-    ws.on('message', (message) => this.handleMessage(clientId, message));
+    ws.on('message', (message) => this.handleMessage(message));
 
     // 处理连接关闭
-    ws.on('close', (code, reason) => this.handleDisconnect(clientId, code, reason));
+    ws.on('close', (code, reason) => this.handleDisconnect( code, reason));
 
     // 处理错误
-    ws.on('error', (error) => this.handleClientError(clientId, error));
+    ws.on('error', (error) => this.handleClientError(  error));
   }
 
   // 处理客户端消息
-  async handleMessage(clientId, message) {
+  async handleMessage(  message) {
     try {
       // 解析JSON消息
       const event = JSON.parse(message);
@@ -92,7 +77,7 @@ class WebSocketServer {
             if (event.code === 200) {
               // 创建事件
               response = await this.eventService.createEvent({
-                id: uuidv4(),
+                 
                 user: event.user,
                 ops: event.ops,
                 code: event.code,
@@ -155,38 +140,24 @@ class WebSocketServer {
           throw new Error(`未知的 ops 类型: ${event.ops}`);
       }
 
-      // 发送响应给客户端
-      const client = this.clients.get(clientId);
-      if (client && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(JSON.stringify({
-          type: 'response',
-          data: response
-        }));
-      }
+ 
+ 
     } catch (error) {
-      console.error(`处理消息失败 (${clientId}):`, error);
+      console.error(`处理消息失败 :`, error);
 
-      // 发送错误响应给客户端
-      const client = this.clients.get(clientId);
-      if (client && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(JSON.stringify({
-          type: 'error',
-          message: error.message || '处理消息时出错'
-        }));
-      }
+       
     }
   }
 
   // 处理客户端断开连接
-  handleDisconnect(clientId, code, reason) {
-    this.clients.delete(clientId);
-    console.log(`客户端断开连接: ${clientId} (代码: ${code}, 原因: ${reason})`);
-    console.log(`当前连接数: ${this.clients.size}`);
+  handleDisconnect(  code, reason) {
+ 
+ 
   }
 
   // 处理客户端错误
   handleClientError(clientId, error) {
-    console.error(`客户端错误 (${clientId}):`, error);
+    console.error(`客户端错误  :`, error);
   }
 
   // 处理服务器错误
@@ -197,16 +168,8 @@ class WebSocketServer {
   // 关闭服务器
   async close() {
     try {
-      // 关闭所有客户端连接
-      this.clients.forEach((client) => {
-        if (client.ws.readyState !== WebSocket.CLOSED) {
-          client.ws.close(1001, '服务器关闭');
-        }
-      });
-
-      // 清空客户端列表
-      this.clients.clear();
-
+ 
+ 
       // 关闭WebSocket服务器
       return new Promise((resolve, reject) => {
         if (this.wss) {

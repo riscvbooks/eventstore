@@ -1,5 +1,5 @@
 // src/db/users.js
-const { getClient } = require('./client.js');
+const { getClient } = require('./client');
 const config = require('../../config/config');
 const { ec } = require('elliptic'); // 引入椭圆曲线库
 const crypto = require('crypto');
@@ -144,4 +144,4 @@ class UserService {
   }
 }
 
-module.exports = new UserService();
+module.exports =  UserService;

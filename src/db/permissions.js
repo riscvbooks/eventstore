@@ -1,5 +1,5 @@
 // src/db/permissions.js
-const { getClient } = require('./client.js');
+const { getClient } = require('./client');
 const config = require('../../config/config');
 const { ec } = require('elliptic');
 const crypto = require('crypto');
@@ -238,4 +238,4 @@ class PermissionService {
   }
 }
 
-module.exports = new PermissionService();
+module.exports =  PermissionService;

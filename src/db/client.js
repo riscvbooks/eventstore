@@ -1,6 +1,6 @@
 // src/db/client.js
 const { MongoClient } = require('mongodb');
-const config = require('../config/config');
+const config = require('../../config/config');
 
 let client = null;
 

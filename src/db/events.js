@@ -1,5 +1,5 @@
 // src/db/events.js
-const { getClient } = require('./client.js');
+const { getClient } = require('./client');
 const config = require('../../config/config');
 const crypto = require('crypto');
 const { ec } = require('elliptic');
@@ -97,4 +97,4 @@ class EventService {
 }
 
 // 导出单例服务
-module.exports = new EventService();
+module.exports = EventService ;
