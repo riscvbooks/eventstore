@@ -4,7 +4,7 @@ const {
     getPublicKey, 
     epubEncode,
     esecEncode,
-} = require('../src/utils/key');
+} = require('eventstore-tools/src/key');
 const logger = require('../src/utils/logger');
 
 const { bytesToHex, hexToBytes } = require('@noble/hashes/utils');
