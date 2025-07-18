@@ -16,6 +16,7 @@
     "mongodb": "^6.17.0",
     "node-localstorage": "^3.0.5",
     "winston": "^3.17.0",
-    "ws": "^8.18.2"
+    "ws": "^8.18.2",
+    "eventstore-tools": "git+https://github.com/asmcos/eventstore-tools.git"
   }
 }
