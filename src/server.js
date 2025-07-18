@@ -50,14 +50,14 @@ class WebSocketServer {
   async handleMessage(  message) {
     try {
       // 解析JSON消息
-      const event = JSON.parse(message);
-
+      message = JSON.parse(message);
+      let event = message[2]
       // 验证消息格式
       if (!event.ops || !event.code || !event.user) {
         throw new Error('无效的事件格式: 缺少 ops、code 或 user 字段');
       }
 
-      console.log(`收到来自 ${clientId} 的事件: ops=${event.ops}, code=${event.code}, user=${event.user}`);
+      console.log(` ops=${event.ops}, code=${event.code}, user=${event.user}`);
 
       let response;
       switch (event.ops) {
