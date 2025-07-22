@@ -66,11 +66,7 @@ class WebSocketServer {
             // 用户相关创建操作
             if (event.code === 100) {
               // 创建用户
-              response = await this.userService.createUser({
-                pubkey: event.user,
-                email: event.data.email,
-                sig: event.sig
-              });
+              response = await this.userService.createUser(event);
             }
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关创建操作
@@ -169,9 +165,13 @@ class WebSocketServer {
   async close() {
     try {
  
- 
+     
       // 关闭WebSocket服务器
       return new Promise((resolve, reject) => {
+         setTimeout(() => {
+   		 reject(new Error("close WebSocket timeout")); // 建议用 Error 对象，便于捕获堆栈
+  	}, 5000);
+
         if (this.wss) {
           this.wss.close((error) => {
             if (error) {
@@ -204,6 +204,7 @@ async function Servermain() {
     process.on('SIGINT', async () => {
       console.log('接收到关闭信号，正在优雅退出...');
       await server.close();
+      console.log('exit');
       process.exit(0);
     });
 

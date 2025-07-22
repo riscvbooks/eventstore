@@ -6,7 +6,7 @@ let client = null;
 
 // 获取共享客户端实例
 async function getClient() {
-  if (client && client.isConnected()) {
+  if (client) {
     return client;
   }
 
