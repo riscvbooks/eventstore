@@ -37,7 +37,7 @@ class WebSocketServer {
  
 
     // 处理接收到的消息
-    ws.on('message', (message) => this.handleMessage(message));
+    ws.on('message', (message) => this.handleMessage(ws,message));
 
     // 处理连接关闭
     ws.on('close', (code, reason) => this.handleDisconnect( code, reason));
@@ -47,17 +47,17 @@ class WebSocketServer {
   }
 
   // 处理客户端消息
-  async handleMessage(  message) {
+  async handleMessage(ws, message) {
     try {
       // 解析JSON消息
       message = JSON.parse(message);
       let event = message[2]
       // 验证消息格式
-      if (!event.ops || !event.code || !event.user) {
-        throw new Error('无效的事件格式: 缺少 ops、code 或 user 字段');
+      if (!event.ops || !event.code ) {
+        throw new Error('无效的事件格式: 缺少 ops、code 字段');
       }
 
-      console.log(` ops=${event.ops}, code=${event.code}, user=${event.user}`);
+      console.log(` ops=${event.ops}, code=${event.code} `);
 
       let response;
       switch (event.ops) {
@@ -73,6 +73,9 @@ class WebSocketServer {
             if (event.code === 200) {
               // 创建事件
               response = await this.eventService.createEvent(event);
+            }
+            if (event.code === 203) {
+            	response = await this.eventServer.readEvent(event)
             }
           } else if (event.code >=300 && event.code < 400){
           	if (event.code === 300){
@@ -91,7 +94,10 @@ class WebSocketServer {
             // 事件相关读取操作
             if (event.code === 203) {
               // 查询事件信息
-              response = await this.eventService.readEvents({ user: event.user }, 1000);
+              let filter = {};
+              
+              response = await this.eventService.readEvents(filter, 1000);
+              this.handleResp(ws, message[1] , response);
             }
           }
           break;
@@ -138,6 +144,20 @@ class WebSocketServer {
 
        
     }
+  }
+
+  handleResp(ws,messageId,response){
+	 // 确保 response 始终为可序列化的值（避免 undefined 或 null 导致的解析问题）
+	let safeResponse = response;
+	if (safeResponse === undefined || safeResponse === null) {
+	  safeResponse = []; // 空数组表示“无结果”（适用于列表查询）
+	  // 或根据场景使用 null/{}：
+	  // safeResponse = null; // 表示“无数据”
+	  // safeResponse = {}; // 适用于对象类型的空结果
+	}
+
+	// 发送时使用处理后的安全响应
+	ws.send(JSON.stringify(["RESP", messageId, safeResponse]));
   }
 
   // 处理客户端断开连接
