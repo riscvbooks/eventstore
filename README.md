@@ -328,3 +328,49 @@ async function validateEvent(event) {
 - 确保MongoDB服务已启动，并且配置文件中的数据库连接信息正确。
 - 管理员公钥需要在 `config/config.js` 中配置，所有权限操作需要管理员签名验证。
 - 客户端和服务器使用相同的哈希算法和签名算法（SHA256和椭圆曲线签名），确保数据的一致性和安全性。
+
+## 如何使用最新 eventstore-tools
+```
+npm update eventstore-tools --force
+```
+
+## 初始化 admin用户
+
+```
+node tools/admin-key.js
+```
+
+会产生一个admin的 公钥和私钥，
+将公钥配置到 config/config.js里
+```
+module.exports = {
+  // 数据库连接配置
+  database: {
+    uri: 'mongodb://localhost:27017',
+    dbName: 'eventstore',
+    // 连接池配置
+    collections:{
+      events:'events',
+      users:'users',
+      permissions: 'permissions' // 权限
+    },
+    options: {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+    }
+  },
+  admin:{
+    pubkey:"2bc5xxxxxx",
+    email:"admin@xxxxx.com"
+  },//pubkey
+};
+
+```
+
+再次执行
+```
+node tools/admin-key.js
+```
+

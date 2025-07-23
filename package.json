@@ -13,10 +13,10 @@
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^1.2.6",
     "elliptic": "^6.6.1",
+    "eventstore-tools": "github:asmcos/eventstore-tools",
     "mongodb": "^6.17.0",
     "node-localstorage": "^3.0.5",
     "winston": "^3.17.0",
-    "ws": "^8.18.2",
-    "eventstore-tools": "git+https://github.com/asmcos/eventstore-tools.git"
+    "ws": "^8.18.2"
   }
 }

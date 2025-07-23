@@ -8,7 +8,7 @@ module.exports = {
     collections:{
       events:'events',
       users:'users',
-      permissions: 'permissions' // 权限集合
+      permissions: 'permissions' // 权限
     },
     options: {
       useNewUrlParser: true,
@@ -18,6 +18,7 @@ module.exports = {
     }
   },
   admin:{
-    pubkey:""
+    pubkey:"2bc571b20f7dc9734aeca6a1b0c6e5990465f7e19422ecfa8b8cb38f0cec26c1",
+    email:"admin@es.com"
   },//pubkey
 };

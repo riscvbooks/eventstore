@@ -83,6 +83,10 @@ class WebSocketServer {
                 tags: event.tags
               });
             }
+          } else if (event.code >=300 && event.code < 400){
+          	if (event.code === 300){
+          		response = await this.permissionService.assignPermission(event);
+          	}
           }
           break;
         case 'R':
