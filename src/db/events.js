@@ -1,13 +1,17 @@
 // src/db/events.js
 const { getClient } = require('./client');
 const config = require('../../config/config');
-const crypto = require('crypto');
-const { ec } = require('elliptic');
+const {    PERMISSIONS,
+    defaultPermissionConfigs
+} = require("eventstore-tools/src/common"); 
+
+const {verifyEvent} = require("eventstore-tools/src/key");
 
 class EventService {
   constructor() {
     this.collections = config.database.collections;
-    this.ecInstance = new ec('secp256k1'); // 初始化椭圆曲线实例
+     this.adminPubkey = config.admin.pubkey; // 从配置文件读取管理员公钥
+    
   }
 
   // 获取数据库实例（使用共享客户端）
@@ -20,64 +24,39 @@ class EventService {
   async createEvent(event) {
     const db = await this.getDb();
     const eventsCollection = db.collection(this.collections.events);
-    const usersCollection = db.collection(this.collections.users);
+    const permissionsCollection = db.collection(this.collections.permissions);
 
-    // 字段校验
-    const requiredFields = ['id', 'user', 'ops', 'code', 'sig', 'created_at'];
-    const missingFields = requiredFields.filter(field => !event[field]);
-    if (missingFields.length > 0) {
-      throw new Error(`缺少必要字段: ${missingFields.join(', ')}`);
-    }
-
+ 
     // 时间校验
     const clientTime = new Date(event.created_at);
-    const timeDiff = Math.abs(Date.now() - clientTime);
+    const timeDiff = Math.abs(Math.floor(Date.now() / 1000) - clientTime);
     if (timeDiff > 5 * 60 * 1000) { // 5分钟容忍度
       throw new Error('事件时间超出允许范围');
     }
 
     // 用户校验
-    const user = await usersCollection.findOne({ pubkey: event.user });
+    const user = await permissionsCollection.findOne({ pubkey: event.user });
     if (!user) {
       throw new Error(`无效用户: ${event.user}`);
     }
 
+    if (event.user != this.adminPubkey && user.permissions !=  PERMISSIONS.CREATE_EVENTS){
+    	throw new Error(`无权限`);
+    }
+    
     // 签名校验
-    const dataToSign = [
-      event.id,
-      event.user,
-      event.ops,
-      event.code,
-      JSON.stringify(event.data),
-      event.created_at
-    ].join('|');
-
-    const isValid = this.ecInstance.keyFromPublic(event.user, 'hex')
-      .verify(
-        crypto.createHash('sha256').update(dataToSign).digest('hex'),
-        event.sig
-      );
+   const isValid = verifyEvent(event, event.user);
 
     if (!isValid) {
       throw new Error('签名验证失败');
     }
 
     // 构建事件文档
-    const eventDoc = {
-      eventId: event.id,
-      user: event.user,
-      ops: event.ops,
-      code: event.code,
-      sig: event.sig,
-      data: event.data,
-      tags: event.tags || [],
-      created_at: clientTime,
-      timestamp: new Date()
-    };
-
+    event.servertimestamp = new Date();
+ 
     // 保存事件
-    await eventsCollection.insertOne(eventDoc);
-    return eventDoc;
+    await eventsCollection.insertOne(event);
+    return event;
   }
 
   // 读取事件

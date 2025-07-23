@@ -72,16 +72,7 @@ class WebSocketServer {
             // 事件相关创建操作
             if (event.code === 200) {
               // 创建事件
-              response = await this.eventService.createEvent({
-                 
-                user: event.user,
-                ops: event.ops,
-                code: event.code,
-                sig: event.sig,
-                created_at: event.created_at,
-                data: event.data,
-                tags: event.tags
-              });
+              response = await this.eventService.createEvent(event);
             }
           } else if (event.code >=300 && event.code < 400){
           	if (event.code === 300){
