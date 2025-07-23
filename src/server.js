@@ -97,6 +97,7 @@ class WebSocketServer {
               let filter = {};
               let limit = 1000;
               if (event.limit) limit = event.limit;
+              if (event.tags) filter['tags'] = event.tags
               
               response = await this.eventService.readEvents(filter, limit);
               this.handleResp(ws, message[1] , response);

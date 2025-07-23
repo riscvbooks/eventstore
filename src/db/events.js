@@ -62,17 +62,19 @@ class EventService {
   // 读取事件
   async readEvents(filter = {}, limit = 1000) {
     const db = await this.getDb();
+    const query = {
+
+            };
+    if (filter.tags) query["tags"] = {$all:filter.tags};
+    
     return db.collection(this.collections.events)
-      .find(filter)
+      .find(query)
       .sort({ timestamp: -1 })
       .limit(limit)
       .toArray();
   }
 
-  // 根据标签查询事件
-  async getEventsByTags(tags, limit = 1000) {
-    return this.readEvents({ tags: { $in: tags } }, limit);
-  }
+
 }
 
 // 导出单例服务
