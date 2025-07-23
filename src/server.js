@@ -95,8 +95,10 @@ class WebSocketServer {
             if (event.code === 203) {
               // 查询事件信息
               let filter = {};
+              let limit = 1000;
+              if (event.limit) limit = event.limit;
               
-              response = await this.eventService.readEvents(filter, 1000);
+              response = await this.eventService.readEvents(filter, limit);
               this.handleResp(ws, message[1] , response);
             }
           }
@@ -147,19 +149,19 @@ class WebSocketServer {
   }
 
   handleResp(ws,messageId,response){
-	 // 确保 response 始终为可序列化的值（避免 undefined 或 null 导致的解析问题）
-	let safeResponse = response;
-	if (safeResponse === undefined || safeResponse === null) {
-	  safeResponse = []; // 空数组表示“无结果”（适用于列表查询）
-	  // 或根据场景使用 null/{}：
-	  // safeResponse = null; // 表示“无数据”
-	  // safeResponse = {}; // 适用于对象类型的空结果
+ 
+	if (Array.isArray(response)) {
+	    // 2. 非空结果：for 循环逐条发送
+	    for (const item of response) {
+	      ws.send(JSON.stringify(["RESP", messageId, item]));
+	    }
+	  
+	} else {
+	   ws.send(JSON.stringify(["RESP", messageId, response]));
 	}
-
-	// 发送时使用处理后的安全响应
-	ws.send(JSON.stringify(["RESP", messageId, safeResponse]));
+	
+	ws.send(JSON.stringify(["RESP", messageId, "EOSE"]));
   }
-
   // 处理客户端断开连接
   handleDisconnect(  code, reason) {
  
