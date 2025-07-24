@@ -54,8 +54,9 @@
   "user": "公钥",
   "data": {
     "email": "example@example.com",
-    "sig": "签名信息"
-  }
+
+  },
+  "sig": "签名信息"
 }
 ```
 上述示例表示客户端发起创建用户的请求，`code` 码为 `100`。
@@ -83,13 +84,7 @@ async handleMessage(clientId, message) {
       // 其他 case 处理...
     }
     // 发送响应给客户端
-    const client = this.clients.get(clientId);
-    if (client && client.ws.readyState === WebSocket.OPEN) {
-      client.ws.send(JSON.stringify({
-        type: 'response',
-        data: response
-      }));
-    }
+ 
   } catch (error) {
     // 处理错误
   }
