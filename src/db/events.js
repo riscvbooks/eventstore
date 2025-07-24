@@ -66,6 +66,7 @@ class EventService {
 
             };
     if (filter.tags) query["tags"] = {$all:filter.tags};
+    if (filter.user) query['user'] = filter.user
     
     return db.collection(this.collections.events)
       .find(query)

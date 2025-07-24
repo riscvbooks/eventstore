@@ -1,6 +1,4 @@
-// src/server.js
 const WebSocket = require('ws');
- 
 const EventService = require('./db/events');
 const UserService = require('./db/users');
 const PermissionService = require('./db/permissions');
@@ -9,6 +7,8 @@ class WebSocketServer {
   constructor(port = 8080) {
     this.port = port;
     this.wss = null;
+    this.subscriptions = {};
+    this.nextSubscriptionId = 1;
     this.eventService = new EventService();
     this.userService = new UserService();
     this.permissionService = new PermissionService();
@@ -34,30 +34,38 @@ class WebSocketServer {
 
   // 处理新客户端连接
   handleConnection(ws, req) {
- 
-
     // 处理接收到的消息
-    ws.on('message', (message) => this.handleMessage(ws,message));
+    ws.on('message', (message) => this.handleMessage(ws, message));
 
     // 处理连接关闭
-    ws.on('close', (code, reason) => this.handleDisconnect( code, reason));
+    ws.on('close', (code, reason) => this.handleDisconnect(code, reason));
 
     // 处理错误
-    ws.on('error', (error) => this.handleClientError(  error));
+    ws.on('error', (error) => this.handleClientError(error));
   }
 
   // 处理客户端消息
   async handleMessage(ws, message) {
     try {
       // 解析JSON消息
-      message = JSON.parse(message);
-      let event = message[2]
+      const parsedMessage = JSON.parse(message);
+      const event = parsedMessage[2];
+
       // 验证消息格式
-      if (!event.ops || !event.code ) {
+      if (parsedMessage[0] === "UNSUB") {
+        for (const subscriptionId in this.subscriptions) {
+          if (this.subscriptions[subscriptionId].clientid === parsedMessage[1]) {
+            delete this.subscriptions[subscriptionId];
+          }
+        }
+        return;
+      }
+
+      if (!event.ops || !event.code) {
         throw new Error('无效的事件格式: 缺少 ops、code 字段');
       }
 
-      console.log(` ops=${event.ops}, code=${event.code} `);
+      console.log(`ops=${event.ops}, code=${event.code}`);
 
       let response;
       switch (event.ops) {
@@ -73,14 +81,15 @@ class WebSocketServer {
             if (event.code === 200) {
               // 创建事件
               response = await this.eventService.createEvent(event);
+              if (response) {
+                
+                this.matchSubscriptions(event);
+              }
             }
-            if (event.code === 203) {
-            	response = await this.eventServer.readEvent(event)
+          } else if (event.code >= 300 && event.code < 400) {
+            if (event.code === 300) {
+              response = await this.permissionService.assignPermission(event);
             }
-          } else if (event.code >=300 && event.code < 400){
-          	if (event.code === 300){
-          		response = await this.permissionService.assignPermission(event);
-          	}
           }
           break;
         case 'R':
@@ -97,10 +106,17 @@ class WebSocketServer {
               let filter = {};
               let limit = 1000;
               if (event.limit) limit = event.limit;
-              if (event.tags) filter['tags'] = event.tags
-              
+              if (event.tags) filter['tags'] = event.tags;
+              if (event.user) filter['user'] = event.user;
+
+              this.subscriptions[this.getNextSubscriptionId()] = {
+                clientid: parsedMessage[1],
+                ws: ws,
+                event: event,
+              };
+
               response = await this.eventService.readEvents(filter, limit);
-              this.handleResp(ws, message[1] , response);
+              this.handleResp(ws, parsedMessage[1], response);
             }
           }
           break;
@@ -139,39 +155,35 @@ class WebSocketServer {
         default:
           throw new Error(`未知的 ops 类型: ${event.ops}`);
       }
-
- 
- 
     } catch (error) {
       console.error(`处理消息失败 :`, error);
-
-       
     }
   }
 
-  handleResp(ws,messageId,response){
- 
-	if (Array.isArray(response)) {
-	    // 2. 非空结果：for 循环逐条发送
-	    for (const item of response) {
-	      ws.send(JSON.stringify(["RESP", messageId, item]));
-	    }
-	  
-	} else {
-	   ws.send(JSON.stringify(["RESP", messageId, response]));
-	}
-	
-	ws.send(JSON.stringify(["RESP", messageId, "EOSE"]));
+  handleResp(ws, messageId, response) {
+    if (Array.isArray(response)) {
+      // 2. 非空结果：for 循环逐条发送
+      for (const item of response) {
+        ws.send(JSON.stringify(["RESP", messageId, item]));
+      }
+    } else {
+      ws.send(JSON.stringify(["RESP", messageId, response]));
+    }
+    ws.send(JSON.stringify(["RESP", messageId, "EOSE"]));
   }
+
   // 处理客户端断开连接
-  handleDisconnect(  code, reason) {
- 
- 
+  handleDisconnect(code, reason) {
+    for (const subscriptionId in this.subscriptions) {
+      if (this.subscriptions[subscriptionId].ws.readyState === WebSocket.CLOSED) {
+        delete this.subscriptions[subscriptionId];
+      }
+    }
   }
 
   // 处理客户端错误
   handleClientError(clientId, error) {
-    console.error(`客户端错误  :`, error);
+    console.error(`客户端错误 :`, error);
   }
 
   // 处理服务器错误
@@ -179,16 +191,69 @@ class WebSocketServer {
     console.error('WebSocket服务器错误:', error);
   }
 
+  getNextSubscriptionId() {
+    return this.nextSubscriptionId++;
+  }
+
+	// 匹配订阅并发送消息给订阅者
+	matchSubscriptions(event) {
+	  for (const subscriptionId in this.subscriptions) {
+	    const subscription = this.subscriptions[subscriptionId];
+	    const subscriptionEvent = subscription.event;
+	    const ws = subscription.ws;
+
+	    // 订阅了某个用户的
+	    if (subscriptionEvent.user && subscriptionEvent.user === event.user && !subscriptionEvent.tags) {
+	      ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+	      continue;
+	    }
+
+	    // 带有 tags 的订阅
+	    if (subscriptionEvent.tags && subscriptionEvent.tags.length > 0) {
+	      // 检查 event.tags 是否包含所有 subscriptionEvent.tags
+	      const isSubset = subscriptionEvent.tags.every(tag => 
+		event.tags.some(eventTag => eventTag[0] === tag[0] && eventTag[1] === tag[1])
+	      );
+
+	      if (isSubset) {
+		ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+		continue;
+	      }
+	    }
+
+	    // 同时指定 tags 和 user
+	    if (subscriptionEvent.user && subscriptionEvent.tags && subscriptionEvent.tags.length > 0) {
+	      // 检查 event.tags 是否包含所有 subscriptionEvent.tags
+	      const isSubset = subscriptionEvent.tags.every(tag => 
+		event.tags.some(eventTag => eventTag[0] === tag[0] && eventTag[1] === tag[1])
+	      );
+
+	      if (isSubset && subscriptionEvent.user === event.user) {
+		ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+		continue;
+	      }
+	    }
+
+	    // 全部订阅
+	    if (!subscriptionEvent.tags && !subscriptionEvent.user) {
+	      ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+	      continue;
+	    }
+	  }
+	}
+
+
+
+
+
   // 关闭服务器
   async close() {
     try {
- 
-     
       // 关闭WebSocket服务器
       return new Promise((resolve, reject) => {
-         setTimeout(() => {
-   		 reject(new Error("close WebSocket timeout")); // 建议用 Error 对象，便于捕获堆栈
-  	}, 5000);
+        setTimeout(() => {
+          reject(new Error("close WebSocket timeout")); // 建议用 Error 对象，便于捕获堆栈
+        }, 5000);
 
         if (this.wss) {
           this.wss.close((error) => {
@@ -246,3 +311,7 @@ if (require.main === module) {
 module.exports = {
   WebSocketServer
 };
+
+
+
+
