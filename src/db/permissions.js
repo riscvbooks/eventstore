@@ -127,7 +127,7 @@ class PermissionService {
 	  const permissionsCollection = db.collection(this.collections.permissions);
 	  
 	  // 从event.data中提取userId和permissionName
-	  const { userId, permissionName } = event.data;
+	  const { userId, permissionValue } = event.data;
 	  
 	  // 验证event签名
 	  const isValid = verifyEvent(event, this.adminPubkey);
@@ -135,8 +135,7 @@ class PermissionService {
 	    throw new Error('签名验证失败 ');
 	  }
 
-	  // 1. 将权限名称转换为位值
-	  const permissionBitValue = this.getPermissionBitValue(permissionName);
+ 
 
 	  // 2. 获取用户当前权限
 	  const user = await permissionsCollection.findOne({ pubkey: userId });
@@ -174,7 +173,7 @@ class PermissionService {
     // 1. 获取用户信息
     const user = await permissionsCollection.findOne(
       { pubkey: userId },
-      { projection: { permissions: 1 } }
+       
     );
     if (!user) {
       logger.error(`用户 ${userId} 不存在`);
@@ -209,31 +208,32 @@ class PermissionService {
   }
 
   // 检查用户是否有特定权限
-  async hasPermission(userId, permissionName) {
+  async hasPermission(userId, permissionValue) {
     try {
       const db = await this.getDb();
       const permissionsCollection = db.collection(this.collections.permissions);
       
       // 获取用户权限值
+ 
       const user = await permissionsCollection.findOne(
         { pubkey: userId },
-        { projection: { permissions: 1 } }
+         
       );
-      
+   
       if (!user) {
         throw new Error(`用户 ${userId} 不存在`);
       }
       
       // 将权限名称转换为位值
-      const requiredPermission = this.getPermissionBitValue(permissionName);
+      const requiredPermission =  permissionValue;
       
       // 检查权限
-      const hasPerm = (user.permissions || 0) & requiredPermission;
-      logger.info(`用户 ${userId} 是否拥有权限 ${permissionName}: ${!!hasPerm}`);
+      const hasPerm = user.permissions & requiredPermission;
+      logger.info(`用户 ${userId} 拥有权限 ${permissionValue}: ${!!hasPerm}`);
       return !!hasPerm;
     } catch (error) {
-      logger.error(`检查用户 ${userId} 是否拥有权限 ${permissionName} 失败:`, error);
-      throw new Error(`检查用户 ${userId} 是否拥有权限 ${permissionName} 失败`);
+      logger.error(`检查用户 ${userId} 是否拥有权限 ${permissionValue} 失败:`, error);
+      throw new Error(`检查用户 ${userId} 是否拥有权限 ${permissionValue} 失败`);
     }
   }
 

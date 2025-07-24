@@ -2,6 +2,14 @@ const WebSocket = require('ws');
 const EventService = require('./db/events');
 const UserService = require('./db/users');
 const PermissionService = require('./db/permissions');
+const config = require('../config/config');
+const path = require('path');
+const fs = require('fs').promises;
+const {    PERMISSIONS,
+    defaultPermissionConfigs
+} = require("eventstore-tools/src/common");
+
+const {verifyEvent} = require("eventstore-tools/src/key");
 
 class WebSocketServer {
   constructor(port = 8080) {
@@ -12,6 +20,8 @@ class WebSocketServer {
     this.eventService = new EventService();
     this.userService = new UserService();
     this.permissionService = new PermissionService();
+    this.uploadDir = path.join(__dirname, '../', config.uploaddir || 'uploads');
+    this.ensureUploadDirExists();
   }
 
   // 启动服务器
@@ -89,6 +99,10 @@ class WebSocketServer {
           } else if (event.code >= 300 && event.code < 400) {
             if (event.code === 300) {
               response = await this.permissionService.assignPermission(event);
+            }
+          } else if (event.code >=400 && event.code < 500){
+            if (event.code === 400) {
+              response = await this.handleFileUpload(ws,parsedMessage);
             }
           }
           break;
@@ -243,8 +257,69 @@ class WebSocketServer {
 	}
 
 
-
-
+ async handleFileUpload(ws, message) {
+ 	let event = message[2]
+        try {
+            // 验证用户权限
+      
+            const hasPermission = await this.permissionService.hasPermission(
+                event.user, 
+                PERMISSIONS.UPLOAD_FILES 
+            );
+            
+            if (!hasPermission) {
+                ws.send(JSON.stringify(["RESP", message[1], { msg: "没有权限", code: 403 }]));
+                return;
+            }
+            const fileData = event.data.fileData;
+            delete delete event.data.fileData;
+             
+            const isValid = verifyEvent(event,event.user);
+            if (!isValid) {
+             ws.send(JSON.stringify(["RESP", message[1], { msg: "签名验证失败", code: 403 }]));
+	     throw new Error('签名验证失败');
+	    }
+            // 生成唯一文件名
+            const fileName = `${event.id}-${event.data.fileName}`;
+            const filePath = path.join(this.uploadDir, fileName);
+            
+            // 写入文件
+            await fs.writeFile(filePath, Buffer.from(fileData.data));
+           
+            let response = await this.eventService.createEvent(event);
+            
+            // 返回成功响应
+            ws.send(JSON.stringify(["RESP", message[1], {
+                type: 'SUCCESS',
+                code: 200,
+                message: '文件上传成功',
+                fileUrl: `${fileName}`
+            }]));
+            
+ 
+        } catch (error) {
+            console.error('文件上传失败:', error);
+            ws.send(JSON.stringify(["RESP", message[1],{
+                type: 'ERROR',
+                code: 500,
+                message: '文件上传失败: ' + error.message
+            }]));
+        }
+    }
+// 确保 uploadDir 存在，如果不存在则创建
+  async ensureUploadDirExists() {
+    try {
+      await fs.access(this.uploadDir, fs.constants.F_OK);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        // 目录不存在，创建目录
+        await fs.mkdir(this.uploadDir, { recursive: true });
+        console.log(`上传目录已创建: ${this.uploadDir}`);
+      } else {
+        throw error;
+      }
+    }
+  }
 
   // 关闭服务器
   async close() {

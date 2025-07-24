@@ -40,8 +40,8 @@ class EventService {
       throw new Error(`无效用户: ${event.user}`);
     }
 
-    if (event.user != this.adminPubkey && user.permissions !=  PERMISSIONS.CREATE_EVENTS){
-    	throw new Error(`无权限`);
+    if (event.user != this.adminPubkey && !(user.permissions &PERMISSIONS.CREATE_EVENTS)){
+    	throw new Error(`无create event权限`);
     }
     
     // 签名校验

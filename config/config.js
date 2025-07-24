@@ -1,6 +1,7 @@
 // config.js
 module.exports = {
-  // 数据库连接配置
+  uploaddir:"uploads", 
+ // 数据库连接配置
   database: {
     uri: 'mongodb://localhost:27017',
     dbName: 'eventstore',
