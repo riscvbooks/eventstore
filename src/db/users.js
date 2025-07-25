@@ -78,7 +78,18 @@ class UserService {
       throw error;
     }
   }
-
+  async readUsers(filter = {}, limit = 1000) {
+    const db = await this.getDb();
+    let query = {
+            };
+    if (filter) query = filter ;
+ 
+    return db.collection(this.collections.users)
+      .find(query)
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray();
+  }
 
   // 根据 pubkey 查找用户
   async getUserByPubkey(pubkey) {

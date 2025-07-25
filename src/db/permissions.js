@@ -165,6 +165,19 @@ class PermissionService {
 	  }
 	}
 
+  async readPermissions(filter = {}, limit = 1000) {
+    const db = await this.getDb();
+    let query = {
+            };
+    if (filter) query = filter ;
+    
+    return db.collection(this.collections.permissions)
+      .find(query)
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray();
+  }
+  
   // 获取用户所有权限（返回权限名称列表）
   async getUserPermissions(userId) {
     const db = await this.getDb();

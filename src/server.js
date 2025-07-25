@@ -5,11 +5,12 @@ const PermissionService = require('./db/permissions');
 const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
-const {    PERMISSIONS,
-    defaultPermissionConfigs
+const {
+  PERMISSIONS,
+  defaultPermissionConfigs
 } = require("eventstore-tools/src/common");
 
-const {verifyEvent} = require("eventstore-tools/src/key");
+const { verifyEvent } = require("eventstore-tools/src/key");
 
 class WebSocketServer {
   constructor(port = 8080) {
@@ -92,7 +93,6 @@ class WebSocketServer {
               // 创建事件
               response = await this.eventService.createEvent(event);
               if (response) {
-                
                 this.matchSubscriptions(event);
               }
             }
@@ -100,9 +100,9 @@ class WebSocketServer {
             if (event.code === 300) {
               response = await this.permissionService.assignPermission(event);
             }
-          } else if (event.code >=400 && event.code < 500){
+          } else if (event.code >= 400 && event.code < 500) {
             if (event.code === 400) {
-              response = await this.handleFileUpload(ws,parsedMessage);
+              response = await this.handleFileUpload(ws, parsedMessage);
             }
           }
           break;
@@ -111,7 +111,14 @@ class WebSocketServer {
             // 用户相关读取操作
             if (event.code === 103) {
               // 查询用户信息
-              response = await this.userService.getUserByPubkey(event.user);
+              let filter = {};
+              let limit = 1000;
+              if (event.limit) limit = event.limit;
+              if (event.data) filter = event.data;
+
+              response = await this.userService.readUsers(filter, limit);
+              
+              this.handleResp(ws, parsedMessage[1], response);
             }
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关读取操作
@@ -130,6 +137,19 @@ class WebSocketServer {
               };
 
               response = await this.eventService.readEvents(filter, limit);
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+          } else if (event.code >= 300 && event.code < 400) {
+            // 权限相关读取操作
+            if (event.code === 303) {
+              // 查询权限信息
+              let filter = {};
+              let limit = 1000;
+              if (event.limit) limit = event.limit;
+              if (event.data) filter = event.data;
+
+              response = await this.permissionService.readPermissions(filter, limit);
+              
               this.handleResp(ws, parsedMessage[1], response);
             }
           }
@@ -209,104 +229,104 @@ class WebSocketServer {
     return this.nextSubscriptionId++;
   }
 
-	// 匹配订阅并发送消息给订阅者
-	matchSubscriptions(event) {
-	  for (const subscriptionId in this.subscriptions) {
-	    const subscription = this.subscriptions[subscriptionId];
-	    const subscriptionEvent = subscription.event;
-	    const ws = subscription.ws;
+  // 匹配订阅并发送消息给订阅者
+  matchSubscriptions(event) {
+    for (const subscriptionId in this.subscriptions) {
+      const subscription = this.subscriptions[subscriptionId];
+      const subscriptionEvent = subscription.event;
+      const ws = subscription.ws;
 
-	    // 订阅了某个用户的
-	    if (subscriptionEvent.user && subscriptionEvent.user === event.user && !subscriptionEvent.tags) {
-	      ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
-	      continue;
-	    }
+      // 订阅了某个用户的
+      if (subscriptionEvent.user && subscriptionEvent.user === event.user && !subscriptionEvent.tags) {
+        ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+        continue;
+      }
 
-	    // 带有 tags 的订阅
-	    if (subscriptionEvent.tags && subscriptionEvent.tags.length > 0) {
-	      // 检查 event.tags 是否包含所有 subscriptionEvent.tags
-	      const isSubset = subscriptionEvent.tags.every(tag => 
-		event.tags.some(eventTag => eventTag[0] === tag[0] && eventTag[1] === tag[1])
-	      );
+      // 带有 tags 的订阅
+      if (subscriptionEvent.tags && subscriptionEvent.tags.length > 0) {
+        // 检查 event.tags 是否包含所有 subscriptionEvent.tags
+        const isSubset = subscriptionEvent.tags.every(tag =>
+          event.tags.some(eventTag => eventTag[0] === tag[0] && eventTag[1] === tag[1])
+        );
 
-	      if (isSubset) {
-		ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
-		continue;
-	      }
-	    }
-
-	    // 同时指定 tags 和 user
-	    if (subscriptionEvent.user && subscriptionEvent.tags && subscriptionEvent.tags.length > 0) {
-	      // 检查 event.tags 是否包含所有 subscriptionEvent.tags
-	      const isSubset = subscriptionEvent.tags.every(tag => 
-		event.tags.some(eventTag => eventTag[0] === tag[0] && eventTag[1] === tag[1])
-	      );
-
-	      if (isSubset && subscriptionEvent.user === event.user) {
-		ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
-		continue;
-	      }
-	    }
-
-	    // 全部订阅
-	    if (!subscriptionEvent.tags && !subscriptionEvent.user) {
-	      ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
-	      continue;
-	    }
-	  }
-	}
-
-
- async handleFileUpload(ws, message) {
- 	let event = message[2]
-        try {
-            // 验证用户权限
-      
-            const hasPermission = await this.permissionService.hasPermission(
-                event.user, 
-                PERMISSIONS.UPLOAD_FILES 
-            );
-            
-            if (!hasPermission) {
-                ws.send(JSON.stringify(["RESP", message[1], { msg: "没有权限", code: 403 }]));
-                return;
-            }
-            const fileData = event.data.fileData;
-            delete delete event.data.fileData;
-             
-            const isValid = verifyEvent(event,event.user);
-            if (!isValid) {
-             ws.send(JSON.stringify(["RESP", message[1], { msg: "签名验证失败", code: 403 }]));
-	     throw new Error('签名验证失败');
-	    }
-            // 生成唯一文件名
-            const fileName = `${event.id}-${event.data.fileName}`;
-            const filePath = path.join(this.uploadDir, fileName);
-            
-            // 写入文件
-            await fs.writeFile(filePath, Buffer.from(fileData.data));
-           
-            let response = await this.eventService.createEvent(event);
-            
-            // 返回成功响应
-            ws.send(JSON.stringify(["RESP", message[1], {
-                type: 'SUCCESS',
-                code: 200,
-                message: '文件上传成功',
-                fileUrl: `${fileName}`
-            }]));
-            
- 
-        } catch (error) {
-            console.error('文件上传失败:', error);
-            ws.send(JSON.stringify(["RESP", message[1],{
-                type: 'ERROR',
-                code: 500,
-                message: '文件上传失败: ' + error.message
-            }]));
+        if (isSubset) {
+          ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+          continue;
         }
+      }
+
+      // 同时指定 tags 和 user
+      if (subscriptionEvent.user && subscriptionEvent.tags && subscriptionEvent.tags.length > 0) {
+        // 检查 event.tags 是否包含所有 subscriptionEvent.tags
+        const isSubset = subscriptionEvent.tags.every(tag =>
+          event.tags.some(eventTag => eventTag[0] === tag[0] && eventTag[1] === tag[1])
+        );
+
+        if (isSubset && subscriptionEvent.user === event.user) {
+          ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+          continue;
+        }
+      }
+
+      // 全部订阅
+      if (!subscriptionEvent.tags && !subscriptionEvent.user) {
+        ws.send(JSON.stringify(["RESP", subscription.clientid, event]));
+        continue;
+      }
     }
-// 确保 uploadDir 存在，如果不存在则创建
+  }
+
+  async handleFileUpload(ws, message) {
+    let event = message[2];
+    try {
+      // 验证用户权限
+      const hasPermission = await this.permissionService.hasPermission(
+        event.user,
+        PERMISSIONS.UPLOAD_FILES
+      );
+
+      if (!hasPermission) {
+        ws.send(JSON.stringify(["RESP", message[1], { msg: "没有权限", code: 403 }]));
+        return;
+      }
+
+      const fileData = event.data.fileData;
+      delete event.data.fileData;
+
+      const isValid = verifyEvent(event, event.user);
+      if (!isValid) {
+        ws.send(JSON.stringify(["RESP", message[1], { msg: "签名验证失败", code: 403 }]));
+        throw new Error('签名验证失败');
+      }
+
+      // 生成唯一文件名
+      const fileName = `${event.id}-${event.data.fileName}`;
+      const filePath = path.join(this.uploadDir, fileName);
+
+      // 写入文件
+      await fs.writeFile(filePath, Buffer.from(fileData.data));
+
+      let response = await this.eventService.createEvent(event);
+
+      // 返回成功响应
+      ws.send(JSON.stringify(["RESP", message[1], {
+        type: 'SUCCESS',
+        code: 200,
+        message: '文件上传成功',
+        fileUrl: `${fileName}`
+      }]));
+
+    } catch (error) {
+      console.error('文件上传失败:', error);
+      ws.send(JSON.stringify(["RESP", message[1], {
+        type: 'ERROR',
+        code: 500,
+        message: '文件上传失败: ' + error.message
+      }]));
+    }
+  }
+
+  // 确保 uploadDir 存在，如果不存在则创建
   async ensureUploadDirExists() {
     try {
       await fs.access(this.uploadDir, fs.constants.F_OK);
@@ -386,7 +406,3 @@ if (require.main === module) {
 module.exports = {
   WebSocketServer
 };
-
-
-
-
