@@ -16,66 +16,74 @@ class UserService {
   }
 
  
- 
+  isValidEmail(email) {
+    // 邮箱正则表达式 (符合 RFC 5322 标准)
+    const emailRegex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    
+    return emailRegex.test(email);
+  }
 
   // 创建用户（首次建立 pubkey 和 email 的关联，需验证签名）
   async createUser(userData) {
-    const db = await this.getDb();
-    const usersCollection = db.collection(this.collections.users);
-
-    // 验证必要字段
-    
-    if (!userData.user) throw new Error('缺少公钥字段');
-    if (!userData.data.email) throw new Error('缺少邮箱字段');
-    if (!userData.sig) throw new Error('缺少签名字段');
-
-    // 验证邮箱格式
-    if (!/\S+@\S+\.\S+/.test(userData.data.email)) {
-      throw new Error('邮箱格式无效');
-    }
-
-    // 验证签名
-    // 签名数据应为 pubkey 和 email 的组合（确保两者绑定关系可信）
- 
-    const isValid = verifyEvent(userData, userData.user );
-    if (!isValid) {
-      throw new Error('签名验证失败，公钥与邮箱的绑定关系不可信');
-    }
-
-    // 检查 pubkey 是否已存在
-    const existingByPubkey = await usersCollection.findOne({ pubkey: userData.user.pubkey });
-    if (existingByPubkey) {
-      throw new Error('该公钥已被注册');
-    }
-
-    // 检查 email 是否已存在
-    const existingByEmail = await usersCollection.findOne({ email: userData.data.email });
-    if (existingByEmail) {
-      throw new Error('该邮箱已被注册');
-    }
-
-    // 构建用户文档（移除临时签名字段）
-    const userDoc = {
-      pubkey:userData.user,
-      email:userData.data.email,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-     
-    // 保存用户
     try {
-      const result = await usersCollection.insertOne(userDoc);
-      return result;
-    } catch (error) {
-      if (error.code === 11000) {
-        if (error.message.includes('pubkey_1')) {
-          throw new Error('该公钥已被注册');
-        }
-        if (error.message.includes('email_1')) {
-          throw new Error('该邮箱已被注册');
-        }
+      const db = await this.getDb();
+      const usersCollection = db.collection(this.collections.users);
+  
+      // 验证必要字段
+      if (!userData.user) {
+        return { code: 500, message: '缺少公钥字段' };
       }
-      throw error;
+      if (!userData.data?.email) {
+        return { code: 500, message: '缺少邮箱字段' };
+      }
+      if (!userData.sig) {
+        return { code: 500, message: '缺少签名字段' };
+      }
+  
+      // 验证邮箱格式
+      if (!this.isValidEmail(userData.data.email)) {
+        return { code: 500, message: '邮箱格式无效' };
+      }
+  
+      // 验证签名
+      const isValid = verifyEvent(userData, userData.user);
+      if (!isValid) {
+        return { code: 500, message: '签名验证失败，公钥与邮箱的绑定关系不可信' };
+      }
+  
+      // 检查公钥是否已存在
+      const existingByPubkey = await usersCollection.findOne({ pubkey: userData.user.pubkey });
+      if (existingByPubkey) {
+        return { code: 501, message: '该公钥已被注册' };
+      }
+  
+      // 检查邮箱是否已存在
+      const existingByEmail = await usersCollection.findOne({ email: userData.data.email });
+      if (existingByEmail) {
+        return { code: 502, message: '该邮箱已被注册' };
+      }
+  
+      // 构建用户文档
+      const userDoc = {
+        pubkey: userData.user,
+        email: userData.data.email,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+  
+      // 保存用户
+      await usersCollection.insertOne(userDoc);
+      return { code: 200, message: '用户创建成功' };
+  
+    } catch (error) {
+      console.log(error)
+      // 处理数据库唯一键冲突（冗余校验，防止并发问题）
+      if (error.code === 11000) {
+        const conflictField = error.message.includes('pubkey_1') ? '公钥' : '邮箱';
+        return { code: 503, message: `该${conflictField}已被注册` };
+      }
+      // 其他未知错误
+      return { code: 599, message: '服务器内部错误' };
     }
   }
   async readUsers(filter = {}, limit = 1000) {

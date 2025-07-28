@@ -86,6 +86,7 @@ class WebSocketServer {
             if (event.code === 100) {
               // 创建用户
               response = await this.userService.createUser(event);
+              ws.send(JSON.stringify(["RESP", parsedMessage[1], response]));
             }
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关创建操作
