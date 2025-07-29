@@ -176,7 +176,8 @@ class WebSocketServer {
             // 用户相关删除操作
             if (event.code === 102) {
               // 删除用户
-              response = await this.userService.deleteUser(event.user);
+              response = await this.userService.deleteUser(event);
+              ws.send(JSON.stringify(["RESP", parsedMessage[1], response]));
             }
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关删除操作

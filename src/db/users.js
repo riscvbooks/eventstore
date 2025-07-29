@@ -7,7 +7,7 @@ const {verifyEvent} = require("eventstore-tools/src/key");
 class UserService {
   constructor() {
     this.collections = config.database.collections;
-    
+    this.adminPubkey = config.admin.pubkey; // 从配置文件读取管理员公钥
   }
 
   async getDb() {
@@ -137,12 +137,19 @@ class UserService {
   }
 
   // 删除用户（逻辑删除）
-  async deleteUser(pubkey) {
+  async deleteUser(event) {
     const db = await this.getDb();
-    return db.collection(this.collections.users).updateOne(
-      { pubkey },
-      { $set: { status: 'deleted', updatedAt: new Date() } }
+    	  // 验证event签名（合并双重验证）
+	  const isValid = verifyEvent(event, this.adminPubkey);
+	  if (!isValid) {
+      return { code: 500, message: '签名验证失败，公钥与邮箱的绑定关系不可信' };
+	  }
+
+    await db.collection(this.collections.users).deleteOne(
+      { pubkey:event.data.pubkey },
+       
     );
+    return { code: 200, message: '删除用户成功' };
   }
 }
 
