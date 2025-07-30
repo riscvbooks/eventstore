@@ -136,14 +136,30 @@ class UserService {
     return result.value;
   }
 
+
   // 删除用户（逻辑删除）
   async deleteUser(event) {
     const db = await this.getDb();
     	  // 验证event签名（合并双重验证）
+    const permissionsCollection = db.collection(this.collections.permissions);  
+
 	  const isValid = verifyEvent(event, this.adminPubkey);
 	  if (!isValid) {
       return { code: 500, message: '签名验证失败，公钥与邮箱的绑定关系不可信' };
 	  }
+
+    	  // 2. 获取用户当前权限
+	  const user = await permissionsCollection.findOne({ pubkey: event.data.pubkey  });
+	  
+    if (user){
+      try {
+        const result = await permissionsCollection.deleteOne(
+          { pubkey: event.data.pubkey  },
+        );
+      } catch(e){};
+    }
+	  
+
 
     await db.collection(this.collections.users).deleteOne(
       { pubkey:event.data.pubkey },
