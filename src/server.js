@@ -125,12 +125,6 @@ class WebSocketServer {
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关读取操作
             if (event.code === 203) {
-              // 查询事件信息
-              let filter = {};
-              let limit = 1000;
-              if (event.limit) limit = event.limit;
-              if (event.tags) filter['tags'] = event.tags;
-              if (event.user) filter['user'] = event.user;
 
               this.subscriptions[this.getNextSubscriptionId()] = {
                 clientid: parsedMessage[1],
@@ -138,7 +132,7 @@ class WebSocketServer {
                 event: event,
               };
 
-              response = await this.eventService.readEvents(filter, limit);
+              response = await this.eventService.readEvents(event);
               this.handleResp(ws, parsedMessage[1], response);
             }
           } else if (event.code >= 300 && event.code < 400) {

@@ -60,13 +60,40 @@ class EventService {
   }
 
   // 读取事件
-  async readEvents(filter = {}, limit = 1000) {
-    const db = await this.getDb();
-    const query = {
+  async readEvents( event,limit = 1000,code = 200,status = 1) {
 
-            };
-    if (filter.tags) query["tags"] = {$all:filter.tags};
-    if (filter.user) query['user'] = filter.user
+    const db = await this.getDb();
+    const query = { };
+    if (event.tags) query["tags"] = {$all:event.tags};
+    if (event.eventuser) query['user'] = event.eventuser
+    if (event.limit) limit = event.limit;
+ 
+    //code,status = 0,表示查询所有的code和所有的status    
+    if (event.hasOwnProperty('eventcode')) {
+      if (event.eventcode != 0)
+        query.code = event.code;
+    } else {
+      query.code = { $ne: code };  
+    }    
+  
+    //管理员可以查询所有的status 包括 0,1
+   if (event.hasOwnProperty('status')) {
+      if (event.status == 0 || event.status == 1){
+        const isValid = verifyEvent(event, this.adminPubkey);
+
+        if (!isValid) {
+          return {code:500,message:'管理员签名验证失败'}
+        }
+      }
+   }  
+
+   // 如果 filter 中显式设置了 status，则覆盖默认的 status 查询条件
+   if (event.hasOwnProperty('status')) {
+      if (event.status != 0)
+        query.status = event.status;
+    } else {
+      query.status = { $ne: status }; // 添加 status != 1 的过滤条件
+    }
     
     return db.collection(this.collections.events)
       .find(query)
@@ -96,7 +123,20 @@ class EventService {
         return {code:500,message:'签名验证失败'}
     }
 
-    await eventsCollection.deleteOne({id:eventid});
+    if (event.user == eventdoc.user){
+      await eventsCollection.deleteOne({id:eventid});
+    } 
+    if (event.user == this.adminPubkey){
+      await eventsCollection.updateOne(
+        { id: eventid },
+        {
+          $set: { 
+            status: 1,
+            updatedAt: new Date() 
+          }
+        }
+      );
+    }
     return  {code:200,message:'事件删除成功'};
 
   }
