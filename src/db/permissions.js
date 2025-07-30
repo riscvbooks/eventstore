@@ -68,7 +68,7 @@ class PermissionService {
 	  // 验证event签名（合并双重验证）
 	  const isValid = verifyEvent(event, this.adminPubkey);
 	  if (!isValid) {
-	    throw new Error('签名验证失败');
+	     return { code: 500, message:  '签名验证失败'};
 	  }
 
  
@@ -83,40 +83,40 @@ class PermissionService {
 	    newPermissions = permissionValue;
 	    try {
 	      await permissionsCollection.insertOne({
-		pubkey: userId,
-		permissions: newPermissions,
-		createdAt: new Date(),
-		updatedAt: new Date()
+          pubkey: userId,
+          permissions: newPermissions,
+          createdAt: new Date(),
+          updatedAt: new Date()
 	      });
 	      logger.info(`成功为新用户 ${userId} 创建并分配权限 ${permissionValue}`);
-	      return { inserted: true, modifiedCount: 1 };
+	      return { code: 200, message:  '权限分配成功'};
 	    } catch (error) {
 	      logger.error(`创建用户 ${userId} 权限记录失败:`, error);
-	      throw new Error(`创建用户 ${userId} 权限记录失败`);
+	       return { code: 500, message:  '权限分配失败'};
 	    }
 	  } else {
 	    // 用户存在：更新现有权限
 	    newPermissions = (user.permissions || 0) | permissionValue;
 	    try {
 	      const result = await permissionsCollection.updateOne(
-		{ pubkey: userId },
-		{
-		  $set: { 
-		    permissions: newPermissions,
-		    updatedAt: new Date() 
-		  }
-		}
+          { pubkey: userId },
+          {
+            $set: { 
+              permissions: newPermissions,
+              updatedAt: new Date() 
+            }
+          }
 	      );
 	      
 	      if (result.modifiedCount === 0 && user.permissions === newPermissions) {
-		logger.info(`用户 ${userId} 已拥有权限 ${permissionName}`);
+		      logger.info(`用户 ${userId} 已拥有权限 ${permissionName}`);
 	      } else {
-		logger.info(`成功为用户 ${userId} 更新并分配权限 ${permissionValue}`);
+	        logger.info(`成功为用户 ${userId} 更新并分配权限 ${permissionValue}`);
 	      }
-	      return result;
+	      return { code: 200, message:  '权限更新成功'};
 	    } catch (error) {
-	      logger.error(`为用户 ${userId} 分配权限 ${permissionName} 失败:`, error);
-	      throw new Error(`为用户 ${userId} 分配权限 ${permissionName} 失败`);
+	        logger.error(`为用户 ${userId} 分配权限 ${permissionName} 失败:`, error);
+	       return { code: 500, message:  '权限更新失败'};
 	    }
 	  }
 	}
