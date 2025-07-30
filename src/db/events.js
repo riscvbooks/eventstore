@@ -10,7 +10,7 @@ const {verifyEvent} = require("eventstore-tools/src/key");
 class EventService {
   constructor() {
     this.collections = config.database.collections;
-     this.adminPubkey = config.admin.pubkey; // 从配置文件读取管理员公钥
+    this.adminPubkey = config.admin.pubkey; // 从配置文件读取管理员公钥
     
   }
 
@@ -31,24 +31,24 @@ class EventService {
     const clientTime = new Date(event.created_at);
     const timeDiff = Math.abs(Math.floor(Date.now() / 1000) - clientTime);
     if (timeDiff > 5 * 60 * 1000) { // 5分钟容忍度
-      throw new Error('事件时间超出允许范围');
+      return {code:500,message:'时间和服务器差距太大'}
     }
 
     // 用户校验
     const user = await permissionsCollection.findOne({ pubkey: event.user });
     if (!user) {
-      throw new Error(`无效用户: ${event.user}`);
+      return {code:500,message:'无效用户'}
     }
 
     if (event.user != this.adminPubkey && !(user.permissions &PERMISSIONS.CREATE_EVENTS)){
-    	throw new Error(`无create event权限`);
+    	return {code:500,message:'无create event权限'};
     }
     
     // 签名校验
    const isValid = verifyEvent(event, event.user);
 
     if (!isValid) {
-      throw new Error('签名验证失败');
+      return {code:500,message:'签名验证失败'}
     }
 
     // 构建事件文档
@@ -56,7 +56,7 @@ class EventService {
  
     // 保存事件
     await eventsCollection.insertOne(event);
-    return event;
+    return  {code:200,message:'事件创建成功'};
   }
 
   // 读取事件
@@ -75,6 +75,31 @@ class EventService {
       .toArray();
   }
 
+  async deleteEvent(event){
+
+    const db = await this.getDb();
+    const eventsCollection = db.collection(this.collections.events);
+
+    let eventid = event.data.eventid 
+     
+    
+    let eventdoc = await eventsCollection.findOne({id:eventid})
+
+    if(!eventdoc) return {code:500,message:"事件不存在"};
+
+    if (event.user != this.adminPubkey && event.user != eventdoc.user)
+      return {code:403,message:"你没有删除权限"};
+
+    const isValid = verifyEvent(event, event.user);
+
+    if (!isValid) {
+        return {code:500,message:'签名验证失败'}
+    }
+
+    await eventsCollection.deleteOne({id:eventid});
+    return  {code:200,message:'事件删除成功'};
+
+  }
 
 }
 

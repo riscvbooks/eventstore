@@ -185,7 +185,8 @@ class WebSocketServer {
             if (event.code === 202) {
               // 删除事件
               // 这里需要在 EventService 中添加删除方法
-              throw new Error('删除事件的功能暂未实现');
+              response = await this.eventService.deleteEvent(event);
+              ws.send(JSON.stringify(["RESP", parsedMessage[1], response]));
             }
           }
           break;
