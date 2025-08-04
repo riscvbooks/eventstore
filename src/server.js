@@ -126,6 +126,7 @@ class WebSocketServer {
               if (response) {
                 this.matchSubscriptions(event);
               }
+              ws.send(JSON.stringify(["RESP", parsedMessage[1], response]));
             }
           } else if (event.code >= 300 && event.code < 400) {
             if (event.code === 300) {
