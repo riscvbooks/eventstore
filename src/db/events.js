@@ -71,9 +71,9 @@ class EventService {
     //code,status = 0,表示查询所有的code和所有的status    
     if (event.hasOwnProperty('eventcode')) {
       if (event.eventcode != 0)
-        query.code = event.code;
+        query.code = event.eventcode;
     } else {
-      query.code = { $ne: code };  
+      query.code = code;  
     }    
   
     //管理员可以查询所有的status 包括 0,1
@@ -94,8 +94,9 @@ class EventService {
     } else {
       query.status = { $ne: status }; // 添加 status != 1 的过滤条件
     }
+
     
-    return db.collection(this.collections.events)
+    return await db.collection(this.collections.events)
       .find(query)
       .sort({ timestamp: -1 })
       .limit(limit)

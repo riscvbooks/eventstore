@@ -164,6 +164,7 @@ class WebSocketServer {
               };
 
               response = await this.eventService.readEvents(event);
+              
               this.handleResp(ws, parsedMessage[1], response);
             }
           } else if (event.code >= 300 && event.code < 400) {
