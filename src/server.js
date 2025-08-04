@@ -12,6 +12,36 @@ const {
 
 const { verifyEvent } = require("eventstore-tools/src/key");
 
+function objectToBuffer(obj) {
+  // 步骤1：提取对象中的数字索引和对应的值
+  const entries = Object.entries(obj)
+      .filter(([key]) => /^\d+$/.test(key)) // 只保留数字索引
+      .map(([key, value]) => [Number(key), Number(value)]); // 转换为数字类型
+
+  if (entries.length === 0) {
+      throw new Error('对象中没有有效的数字索引');
+  }
+
+  // 步骤2：循环计算最大索引（替代Math.max(...array)，避免栈溢出）
+  let maxIndex = -Infinity;
+  for (const [key] of entries) {
+      if (key > maxIndex) {
+          maxIndex = key;
+      }
+  }
+  const length = maxIndex + 1;
+
+  // 步骤3：创建带length的类数组对象
+  const arrayLike = { length };
+  for (const [key, value] of entries) {
+      // 确保值是有效的字节（0-255）
+      arrayLike[key] = Math.min(255, Math.max(0, Math.floor(value)));
+  }
+
+  // 步骤4：转换为Buffer
+  return Buffer.from(arrayLike);
+}
+
 class WebSocketServer {
   constructor(port = 8080) {
     this.port = port;
@@ -287,7 +317,7 @@ class WebSocketServer {
         ws.send(JSON.stringify(["RESP", message[1], { msg: "没有权限", code: 403 }]));
         return;
       }
-
+       
       const fileData = event.data.fileData;
       delete event.data.fileData;
 
@@ -301,8 +331,14 @@ class WebSocketServer {
       const fileName = `${event.id}-${event.data.fileName}`;
       const filePath = path.join(this.uploadDir, fileName);
 
+
       // 写入文件
-      await fs.writeFile(filePath, Buffer.from(fileData.data));
+      if (Buffer.isBuffer(fileData)){
+        await fs.writeFile(filePath, Buffer.from(fileData.data));
+      } else {
+        await fs.writeFile(filePath, objectToBuffer(fileData));
+      }
+      
 
       let response = await this.eventService.createEvent(event);
 
