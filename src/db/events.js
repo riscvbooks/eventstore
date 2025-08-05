@@ -65,7 +65,8 @@ class EventService {
     const db = await this.getDb();
     const query = { };
     if (event.tags) query["tags"] = {$all:event.tags};
-    if (event.eventuser) query['user'] = event.eventuser
+    if (event.eventuser) query['user'] = event.eventuser;
+    if (event.eventid) query['id'] = event.eventid;
     if (event.limit) limit = event.limit;
  
     //code,status = 0,表示查询所有的code和所有的status    
