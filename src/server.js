@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const httpfile = require('./httpfile');
 const EventService = require('./db/events');
 const UserService = require('./db/users');
 const PermissionService = require('./db/permissions');
