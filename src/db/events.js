@@ -51,6 +51,25 @@ class EventService {
       return {code:500,message:'签名验证失败'}
     }
 
+    // 检查是否包含'd'标签，如果有则删除相同user和d值的旧事件
+    if (event.tags && Array.isArray(event.tags)) {
+      // 查找tags中键为'd'的标签值
+      const dTag = event.tags.find(tag => Array.isArray(tag) && tag[0] === 'd');
+      
+      if (dTag && dTag[1]) { // 确保'd'标签有值
+        const dValue = dTag[1];
+        // 删除相同user和d值的事件
+        const deleteResult = await eventsCollection.deleteMany({
+          user: event.user,
+          tags: { $elemMatch: { $eq: ['d', dValue] } }
+        });
+        
+        // 可以在这里添加日志，记录覆盖情况
+        if (deleteResult.deletedCount > 0) {
+          console.log(`已覆盖 ${deleteResult.deletedCount} 个相同user和d值的事件`);
+        }
+      }
+    }
     // 构建事件文档
     event.servertimestamp = new Date();
  
