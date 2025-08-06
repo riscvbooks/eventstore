@@ -88,10 +88,19 @@ class WebSocketServer {
 
   // 处理客户端消息
   async handleMessage(ws, message) {
+    
     try {
       // 解析JSON消息
       const parsedMessage = JSON.parse(message);
       const event = parsedMessage[2];
+      if (Array.isArray(event)){
+        for (const subEvent of event) {
+           
+          await this.handleMessage(ws, JSON.stringify([parsedMessage[0], parsedMessage[1], subEvent]));
+        }
+         
+        return;
+      }
 
       // 验证消息格式
       if (parsedMessage[0] === "UNSUB") {
@@ -157,7 +166,7 @@ class WebSocketServer {
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关读取操作
             if (event.code === 203) {
-
+               
               this.subscriptions[this.getNextSubscriptionId()] = {
                 clientid: parsedMessage[1],
                 ws: ws,
