@@ -62,6 +62,10 @@ async function initAdmin (){
         console.log(e)
     }
 }
+if (config.admin.pubkey ){
 
-initAdmin();
+    initAdmin();
+} else {
+    logger.info("请将："+ Keypub + "配置到config.js,后再次执行次程序")
+}
 
