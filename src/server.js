@@ -194,12 +194,9 @@ class WebSocketServer {
             // 权限相关读取操作
             if (event.code === 303) {
               // 查询权限信息
-              let filter = {};
-              let limit = 1000;
-              if (event.limit) limit = event.limit;
-              if (event.data) filter = event.data;
+ 
 
-              response = await this.permissionService.readPermissions(filter, limit);
+              response = await this.permissionService.readPermissions(event);
               
               this.handleResp(ws, parsedMessage[1], response);
             }

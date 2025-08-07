@@ -165,16 +165,22 @@ class PermissionService {
 	  }
 	}
 
-  async readPermissions(filter = {}, limit = 1000) {
+  async readPermissions(event, limit = 1000,offset=0) {
     const db = await this.getDb();
     let query = {
             };
-    if (filter) query = filter ;
+    // 处理限制条件
+    if (event.limit) limit = event.limit;
+    // 处理偏移量，确保是正数
+    if (event.offset) offset = Math.max(0, parseInt(event.offset, 10) || 0); 
     
-    return db.collection(this.collections.permissions)
+    if (event.data.pubkeys) query['pubkey']  = {$in:event.data.pubkeys}
+    
+    return await db.collection(this.collections.permissions)
       .find(query)
       .sort({ timestamp: -1 })
       .limit(limit)
+      .skip(offset)
       .toArray();
   }
   
