@@ -79,49 +79,55 @@ class EventService {
   }
 
   // 读取事件
-  async readEvents( event,limit = 1000,code = 200,status = 1) {
-
-    const db = await this.getDb();
-    const query = { };
-    if (event.tags) query["tags"] = {$all:event.tags};
-    if (event.eventuser) query['user'] = event.eventuser;
-    if (event.eventid) query['id'] = event.eventid;
-    if (event.limit) limit = event.limit;
- 
-    //code,status = 0,表示查询所有的code和所有的status    
-    if (event.hasOwnProperty('eventcode')) {
-      if (event.eventcode != 0)
-        query.code = event.eventcode;
-    } else {
-      query.code = code;  
-    }    
-  
-    //管理员可以查询所有的status 包括 0,1
-   if (event.hasOwnProperty('status')) {
-      if (event.status == 0 || event.status == 1){
-        const isValid = verifyEvent(event, this.adminPubkey);
-
-        if (!isValid) {
-          return {code:500,message:'管理员签名验证失败'}
-        }
+  async readEvents(event, limit = 1000, code = 200, status = 1, offset = 0) {
+      const db = await this.getDb();
+      const query = {};
+      
+      // 处理查询条件
+      if (event.tags) query["tags"] = { $all: event.tags };
+      if (event.eventuser) query['user'] = event.eventuser;
+      if (event.eventid) query['id'] = event.eventid;
+      
+      // 处理限制条件
+      if (event.limit) limit = event.limit;
+      // 处理偏移量，确保是正数
+      if (event.offset) offset = Math.max(0, parseInt(event.offset, 10) || 0);
+      
+      // 处理事件代码查询条件
+      if (event.hasOwnProperty('eventcode')) {
+          if (event.eventcode !== 0)
+              query.code = event.eventcode;
+      } else {
+          query.code = code;
       }
-   }  
-
-   // 如果 filter 中显式设置了 status，则覆盖默认的 status 查询条件
-   if (event.hasOwnProperty('status')) {
-      if (event.status != 0)
-        query.status = event.status;
-    } else {
-      query.status = { $ne: status }; // 添加 status != 1 的过滤条件
-    }
-
-    
-    return await db.collection(this.collections.events)
-      .find(query)
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .toArray();
+      
+      // 处理状态查询条件（管理员权限验证）
+      if (event.hasOwnProperty('status')) {
+          if (event.status === 0 || event.status === 1) {
+              const isValid = verifyEvent(event, this.adminPubkey);
+              if (!isValid) {
+                  return { code: 500, message: '管理员签名验证失败' };
+              }
+          }
+      }
+      
+      // 应用状态过滤条件
+      if (event.hasOwnProperty('status')) {
+          if (event.status !== 0)
+              query.status = event.status;
+      } else {
+          query.status = { $ne: status };
+      }
+      
+      // 执行带偏移量和限制的查询
+      return await db.collection(this.collections.events)
+          .find(query)
+          .sort({ timestamp: -1 })
+          .skip(offset)  // 增加偏移量
+          .limit(limit)
+          .toArray();
   }
+
 
   async deleteEvent(event){
 
@@ -162,6 +168,11 @@ class EventService {
 
   }
 
+  async counts(){
+    const db = await this.getDb();
+    const total = await db.collection(this.collections.events).countDocuments();
+    return { code: 200, message: '成功', counts:total };
+  }
 }
 
 // 导出单例服务

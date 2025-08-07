@@ -154,15 +154,20 @@ class WebSocketServer {
             // 用户相关读取操作
             if (event.code === 103) {
               // 查询用户信息
-              let filter = {};
-              let limit = 1000;
-              if (event.limit) limit = event.limit;
-              if (event.data) filter = event.data;
+              
 
-              response = await this.userService.readUsers(filter, limit);
+              response = await this.userService.readUsers(event);
               
               this.handleResp(ws, parsedMessage[1], response);
             }
+            if (event.code === 104) {
+              // 查询用户信息
+
+              response = await this.userService.counts( );
+              
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+
           } else if (event.code >= 200 && event.code < 300) {
             // 事件相关读取操作
             if (event.code === 203) {
@@ -177,6 +182,14 @@ class WebSocketServer {
               
               this.handleResp(ws, parsedMessage[1], response);
             }
+            if (event.code === 204) {
+              // 查询用户信息
+
+              response = await this.eventService.counts( );
+              
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+
           } else if (event.code >= 300 && event.code < 400) {
             // 权限相关读取操作
             if (event.code === 303) {

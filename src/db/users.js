@@ -86,16 +86,21 @@ class UserService {
       return { code: 599, message: '服务器内部错误' };
     }
   }
-  async readUsers(filter = {}, limit = 1000) {
+  async readUsers(event, limit = 1000,offset = 0) {
     const db = await this.getDb();
     let query = {
-            };
-    if (filter) query = filter ;
- 
-    return db.collection(this.collections.users)
+    };
+    if (event.user) query['pubkey'] = event.user
+    if (event.email) query['email'] = event.email
+
+    if (event.offset) offset = event.offset;
+    if (event.limit ) limit = event.offset;
+
+    return await db.collection(this.collections.users)
       .find(query)
       .sort({ timestamp: -1 })
       .limit(limit)
+      .skip(offset)
       .toArray();
   }
 
@@ -136,7 +141,7 @@ class UserService {
     return result.value;
   }
 
-
+  
   // 删除用户（逻辑删除）
   async deleteUser(event) {
     const db = await this.getDb();
@@ -166,6 +171,12 @@ class UserService {
        
     );
     return { code: 200, message: '删除用户成功' };
+  }
+
+  async counts(){
+    const db = await this.getDb();
+    const total = await db.collection(this.collections.users).countDocuments();
+    return { code: 200, message: '成功', counts:total };
   }
 }
 
