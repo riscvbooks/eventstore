@@ -116,7 +116,7 @@ class WebSocketServer {
         throw new Error('无效的事件格式: 缺少 ops、code 字段');
       }
 
-      console.log(`ops=${event.ops}, code=${event.code}`);
+      console.log(`ops=${event.ops}, code=${event.code} MessageId=${parsedMessage[1]}`);
 
       let response;
       switch (event.ops) {

@@ -122,7 +122,7 @@ class EventService {
       // 执行带偏移量和限制的查询
       return await db.collection(this.collections.events)
           .find(query)
-          .sort({ timestamp: -1 })
+          .sort({ _id: -1 })
           .skip(offset)  // 增加偏移量
           .limit(limit)
           .toArray();
