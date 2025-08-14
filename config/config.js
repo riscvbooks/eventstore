@@ -12,8 +12,6 @@ module.exports = {
       permissions: 'permissions' // 权限
     },
     options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
     }
