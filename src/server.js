@@ -404,7 +404,7 @@ class WebSocketServer {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           reject(new Error("close WebSocket timeout")); // 建议用 Error 对象，便于捕获堆栈
-        }, 5000);
+        }, 2000);
 
         if (this.wss) {
           this.wss.close((error) => {

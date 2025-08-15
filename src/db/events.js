@@ -170,7 +170,10 @@ class EventService {
 
   async counts(event){
     const db = await this.getDb();
-    let filter = {}
+    let filter = {};
+    if (event.eventuser) filter.user = event.eventuser;
+    if (event.tags) filter.tags = { $all: event.tags };
+  
     const total = await db.collection(this.collections.events).countDocuments(filter);
     return { code: 200, message: '成功', counts:total };
   }
