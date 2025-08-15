@@ -185,7 +185,7 @@ class WebSocketServer {
             if (event.code === 204) {
               // 查询用户信息
 
-              response = await this.eventService.counts( );
+              response = await this.eventService.counts(event);
               
               this.handleResp(ws, parsedMessage[1], response);
             }

@@ -168,9 +168,10 @@ class EventService {
 
   }
 
-  async counts(){
+  async counts(event){
     const db = await this.getDb();
-    const total = await db.collection(this.collections.events).countDocuments();
+    let filter = {}
+    const total = await db.collection(this.collections.events).countDocuments(filter);
     return { code: 200, message: '成功', counts:total };
   }
 }
