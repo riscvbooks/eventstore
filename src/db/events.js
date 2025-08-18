@@ -87,6 +87,7 @@ class EventService {
       if (event.tags) query["tags"] = { $all: event.tags };
       if (event.eventuser) query['user'] = event.eventuser;
       if (event.eventid) query['id'] = event.eventid;
+      if (event.data && event.data.pubkeys) query['user']  = {$in:event.data.pubkeys}
       
       // 处理限制条件
       if (event.limit) limit = event.limit;
@@ -118,7 +119,7 @@ class EventService {
       } else {
           query.status = { $ne: status };
       }
-      
+ 
       // 执行带偏移量和限制的查询
       return await db.collection(this.collections.events)
           .find(query)
