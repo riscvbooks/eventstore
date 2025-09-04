@@ -1,191 +1,192 @@
 # `code` 码规则文档
 
 ## 一、概述
-本 `code` 码规则用于对系统中的不同操作进行分类和标识，将 `code` 码划分为不同的类别，每个类别下包含具体的子类型，方便系统开发、维护和管理。
+本 `code` 码规则在“按业务模块划分主区间”的基础上，新增**子码统一语义规则**：即每个业务模块下，子码末尾数字固定对应操作类型（1=更新、2=删除、3=查询、4=统计总数），形成“模块+操作”的双维度编码体系，降低记忆成本、提升扩展性。
 
-## 二、`code` 码分类及子类型
+
+## 二、`code` 码分类及子类型（含统一语义规则）
+
+### 子码统一语义说明
+| 子码末尾数字 | 操作类型 | 示例（以用户模块为例） |
+| ---- | ---- | ---- |
+| 1 | 更新操作 | 101（更新用户信息） |
+| 2 | 删除操作 | 102（删除用户） |
+| 3 | 查询操作 | 103（查询用户信息） |
+| 4 | 统计总数 | 104（获取用户总数） |
+
 
 ### （一）用户相关操作（`100 - 199`）
-| `code` 码 | 操作描述 |
-| ---- | ---- |
-| 100 | 创建用户 |
-| 101 | 更新用户信息 |
-| 102 | 删除用户 |
-| 103 | 查询用户信息 |
-| 104 | 获取用户总数 |
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 100 | 创建用户 | 基础创建（无统一末尾数字，为模块起始码） |
+| 101 | 更新用户信息 | 1=更新 |
+| 102 | 删除用户 | 2=删除 |
+| 103 | 查询用户信息 | 3=查询 |
+| 104 | 获取用户总数 | 4=统计总数 |
 
 #### 详细说明
-- **创建用户（100）**：当客户端发起创建新用户的请求时，使用此 `code` 码。系统会验证用户提供的信息（如公钥、邮箱、签名等），若信息合法且唯一，则将用户信息存储到数据库中。
-- **更新用户信息（101）**：用于更新已存在用户的信息，但禁止修改用户的公钥和邮箱，以确保公钥和邮箱的关联关系不可变。系统会验证更新请求的合法性，并更新相应的用户信息。
-- **删除用户（102）**：执行逻辑删除操作，将用户的状态标记为 `deleted`，而不是从数据库中物理删除用户信息。
-- **查询用户信息（103）**：根据用户的公钥或邮箱查询用户的详细信息。
-- **获取用户总数（104）**：用于查询系统中的用户总数量，包括正常状态和已删除状态的用户（可通过参数指定是否区分状态）。系统会验证请求者权限，返回相应的统计结果。
+- **创建用户（100）**：客户端发起创建新用户请求时使用，系统验证公钥、邮箱等信息合法性后存储用户数据。
+- **更新用户信息（101）**：仅允许更新非核心字段（禁止修改公钥、邮箱），验证请求合法性后更新数据。
+- **删除用户（102）**：执行逻辑删除（标记 `deleted` 状态），不物理删除数据。
+- **查询用户信息（103）**：根据公钥或邮箱查询用户详情，支持权限内的数据筛选。
+- **获取用户总数（104）**：统计系统用户总量，支持按状态（正常/已删除）筛选，需验证请求者权限。
 
 
 ### （二）事件相关操作（`200 - 299`）
-| `code` 码 | 操作描述 |
-| ---- | ---- |
-| 200 | 创建事件 |
-| 201 | 更新事件信息 |
-| 202 | 删除事件 |
-| 203 | 查询事件信息 |
-| 204 | 获取事件总数 |
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 200 | 创建事件 | 基础创建 |
+| 201 | 更新事件信息 | 1=更新 |
+| 202 | 删除事件 | 2=删除 |
+| 203 | 查询事件信息 | 3=查询 |
+| 204 | 获取事件总数 | 4=统计总数 |
 
 #### 详细说明
-- **创建事件（200）**：客户端发起创建新事件的请求时使用此 `code` 码。系统会对事件的字段进行校验，包括时间、用户、签名等，若校验通过，则将事件信息存储到数据库中。
-- **更新事件信息（201）**：用于更新已存在事件的信息。系统会验证更新请求的合法性，并更新相应的事件信息。
-- **删除事件（202）**：从数据库中删除指定的事件信息。
-- **查询事件信息（203）**：根据指定的条件（如用户、标签等）查询事件的详细信息。
-- **获取事件总数（204）**：用于查询系统中的事件总数量，支持按时间范围、状态等条件进行统计。系统验证权限后返回符合条件的事件总数。
+- **创建事件（200）**：客户端提交事件数据（含时间、用户、签名），系统校验通过后存储。
+- **更新事件信息（201）**：仅允许更新事件内容、标签等字段，验证权限后执行更新。
+- **删除事件（202）**：物理删除指定事件（需事件创建者或管理员权限）。
+- **查询事件信息（203）**：按用户、标签、时间范围等条件查询事件详情。
+- **获取事件总数（204）**：统计符合筛选条件（如时间范围、标签）的事件总量。
 
 
 ### （三）权限相关操作（`300 - 399`）
-| `code` 码 | 操作描述 |
-| ---- | ---- |
-| 300 | 分配权限 |
-| 301 | 撤销权限 |
-| 303 | 查询权限信息 |
-| 304 | 获取权限总数 |
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 300 | 分配权限 | 基础创建（分配即新增权限关联） |
+| 301 | 撤销权限 | 1=更新（更新用户权限列表） |
+| 302 | （预留）删除权限模板 | 2=删除（未来用于删除系统权限模板） |
+| 303 | 查询权限信息 | 3=查询 |
+| 304 | 获取权限总数 | 4=统计总数 |
 
 #### 详细说明
-- **分配权限（300）**：管理员发起为用户分配权限的请求时使用此 `code` 码。系统会验证权限的存在性和管理员的签名，若验证通过，则将权限分配给指定用户。
-- **撤销权限（301）**：管理员发起撤销用户权限的请求时使用此 `code` 码。系统会验证权限的存在性和管理员的签名，若验证通过，则从用户的权限列表中移除指定权限。
-- **查询权限信息（303）**：查询指定用户的所有权限信息。
-- **获取权限总数（304）**：用于查询系统中定义的权限类型总数量，或查询指定用户拥有的权限数量。返回相应的统计数据。
+- **分配权限（300）**：管理员为用户分配权限，需验证管理员签名及权限模板合法性。
+- **撤销权限（301）**：管理员从用户权限列表中移除指定权限，更新用户权限关联关系。
+- **查询权限信息（303）**：查询指定用户的所有权限，或查询系统内所有权限模板。
+- **获取权限总数（304）**：统计系统内权限模板总数，或指定用户的权限数量。
 
 
 ### （四）文件操作（`400 - 499`）
-| `code` 码 | 操作描述 |
-| ---- | ---- |
-| 400 | 上传文件 |
-| 401 | 更新文件 |
-| 402 | 删除文件 |
-| 403 | 查询文件信息 |
-| 404 | 获取文件总数 |
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 400 | 上传文件 | 基础创建 |
+| 401 | 更新文件（元信息） | 1=更新（如更新文件名、描述） |
+| 402 | 删除文件 | 2=删除 |
+| 403 | 查询文件信息 | 3=查询 |
+| 404 | 获取文件总数 | 4=统计总数 |
 
 #### 详细说明
-- **上传文件（400）**：用户发起上传文件的请求时使用此 `code` 码。系统会验证用户权限，接收文件数据并存储到服务器，返回文件访问URL。
-- **更新文件 （401）**：用户发起更新文件 的请求时使用此 `code` 码。系统会验证用户权限，返回文件内容或访问URL。
-- **删除文件（402）**：用户发起删除文件的请求时使用此 `code` 码。系统会验证用户权限，从服务器存储中删除文件。
-- **查询文件信息（403）**：查询指定文件的元信息，如大小、类型、上传时间等。
-- **获取文件总数（404）**：用于查询系统中存储的文件总数量，支持按文件类型、大小范围等条件进行统计。返回符合条件的文件总数。
+- **上传文件（400）**：用户上传文件，系统验证权限后存储文件并返回访问URL。
+- **更新文件（401）**：仅支持更新文件元信息（文件名、描述），不支持替换文件内容。
+- **删除文件（402）**：用户删除自身上传的文件，或管理员删除违规文件，物理移除存储数据。
+- **查询文件信息（403）**：查询文件元信息（大小、类型、上传时间、访问URL）。
+- **获取文件总数（404）**：统计用户上传的文件总量，或系统内某类型文件总数。
 
 
-## 三、使用示例
-在客户端与服务器进行交互时，客户端发送的消息中应包含 `code` 码字段，服务器根据 `code` 码的不同进行相应的处理。
+### （五）评论相关操作（`500 - 599`）
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 500 | 发布评论 | 基础创建 |
+| 501 | 更新评论内容 | 1=更新（仅允许修改自身评论内容） |
+| 502 | 删除评论 | 2=删除 |
+| 503 | 查询评论信息（列表/详情） | 3=查询 |
+| 504 | 获取评论总数 | 4=统计总数 |
+| 505 | 评论点赞/取消点赞 | （扩展操作）更新评论点赞状态 |
+| 506 | 回复评论（嵌套评论） | （扩展操作）创建嵌套评论 |
 
-### 基础操作示例
-创建用户请求示例：
+#### 详细说明
+- **发布评论（500）**：用户对目标内容（章节/事件）发布评论，需携带目标ID、内容、签名。
+- **更新评论内容（501）**：用户修改自身发布的评论内容，系统记录修改时间。
+- **删除评论（502）**：用户删除自身评论，或管理员删除所有评论，支持逻辑/物理删除配置。
+- **查询评论信息（503）**：按目标内容ID、分页、排序（时间/热度）查询评论列表或单条详情。
+- **获取评论总数（504）**：统计指定目标内容的评论总量（含嵌套评论）。
+- **评论点赞/取消点赞（505）**：更新单条评论的点赞状态，同步增减评论点赞数。
+- **回复评论（506）**：创建嵌套评论，关联父评论ID，形成评论层级。
+
+
+### （六）点赞相关操作（`600 - 699`）
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 600 | 内容点赞/取消点赞 | 基础操作（创建/取消点赞关联） |
+| 601 | （预留）更新点赞备注 | 1=更新（未来用于添加点赞备注） |
+| 602 | （预留）批量取消点赞 | 2=删除（未来用于批量删除点赞记录） |
+| 603 | 查询点赞信息（用户/内容） | 3=查询 |
+| 604 | 获取点赞总数 | 4=统计总数 |
+
+#### 详细说明
+- **内容点赞/取消点赞（600）**：用户对内容（章节/事件）发起点赞或取消，系统更新点赞关联记录及内容点赞数。
+- **查询点赞信息（603）**：查询指定内容的所有点赞用户，或指定用户的所有点赞记录。
+- **获取点赞总数（604）**：统计指定内容的实时点赞总量。
+
+
+## 三、使用示例（遵循统一语义规则）
+
+### 1. 按“更新操作=子码末尾1”示例（更新用户信息）
 ```json
 {
-  "ops": "C",
-  "code": 100,
-  "user": "公钥",
+  "ops": "U",
+  "code": 101,  // 100=用户模块，末尾1=更新
+  "user": "用户公钥",
   "data": {
-    "email": "example@example.com"
+    "nickname": "新昵称",
+    "avatarUrl": "新头像URL"
   },
-  "sig": "签名信息"
+  "sig": "用户签名信息"
 }
 ```
 
-### 统计查询示例
-获取用户总数请求示例：
+### 2. 按“统计总数=子码末尾4”示例（获取章节评论总数）
 ```json
 {
   "ops": "R",
-  "code": 104,
-  "user": "请求者公钥",
+  "code": 504,  // 500=评论模块，末尾4=统计总数
+  "user": "用户公钥",
   "data": {
-    "includeDeleted": false  // 是否包含已删除用户
+    "targetType": "chapter",
+    "targetId": "chapter_123456"
   },
-  "sig": "签名信息"
+  "sig": "用户签名信息"
 }
 ```
 
-### 服务器处理逻辑示例
+### 3. 服务器处理逻辑（按统一语义匹配服务方法）
 ```javascript
-// 处理客户端消息
 async handleMessage(clientId, message) {
   try {
     const event = JSON.parse(message);
+    const [moduleCode, actionCode] = [
+      Math.floor(event.code / 100) * 100,  // 提取模块码（如500）
+      event.code % 10                      // 提取操作码（如4=统计总数）
+    ];
     let response;
-    switch (event.code) {
-      // 用户相关操作
-      case 100:
-        response = await this.userService.createUser(event.data);
-        break;
-      case 101:
-        response = await this.userService.updateUser(event.user, event.data);
-        break;
-      case 102:
-        response = await this.userService.deleteUser(event.user);
-        break;
-      case 103:
-        response = await this.userService.queryUser(event.data);
-        break;
-      case 104:
-        response = await this.userService.getUserCount(event.data);
-        break;
 
-      // 事件相关操作
-      case 200:
-        response = await this.eventService.createEvent(event);
-        break;
-      case 201:
-        response = await this.eventService.updateEvent(event.data);
-        break;
-      case 202:
-        response = await this.eventService.deleteEvent(event.data.id);
-        break;
-      case 203:
-        response = await this.eventService.queryEvent(event.data);
-        break;
-      case 204:
-        response = await this.eventService.getEventCount(event.data);
-        break;
-
-      // 权限相关操作
-      case 300:
-        response = await this.permissionService.assignPermission(event.user, event.data.permissionName, event.data.adminSig);
-        break;
-      case 301:
-        response = await this.permissionService.revokePermission(event.user, event.data.permissionName, event.data.adminSig);
-        break;
-      case 303:
-        response = await this.permissionService.queryPermission(event.user);
-        break;
-      case 304:
-        response = await this.permissionService.getPermissionCount(event.user, event.data);
-        break;
-
-      // 文件相关操作
-      case 400:
-        response = await this.fileService.uploadFile(event.user, event.data);
-        break;
-      case 401:
-        response = await this.fileService.updateFile(event.user, event.data);
-        break;
-      case 402:
-        response = await this.fileService.deleteFile(event.user, event.data.fileId);
-        break;
-      case 403:
-        response = await this.fileService.queryFile(event.data.fileId);
-        break;
-      case 404:
-        response = await this.fileService.getFileCount(event.data);
-        break;
+    // 按“模块+操作”匹配逻辑，降低分支复杂度
+    if (moduleCode === 100) { // 用户模块
+      if (actionCode === 0) response = await this.userService.create(event.data);
+      if (actionCode === 1) response = await this.userService.update(event.user, event.data);
+      if (actionCode === 2) response = await this.userService.delete(event.user);
+      if (actionCode === 3) response = await this.userService.query(event.data);
+      if (actionCode === 4) response = await this.userService.count(event.data);
     }
-    // 发送响应给客户端
-    this.sendResponse(clientId, {
-      success: true,
-      data: response
-    });
+
+    if (moduleCode === 500) { // 评论模块
+      if (actionCode === 0) response = await this.commentService.publish(event.user, event.data);
+      if (actionCode === 1) response = await this.commentService.update(event.user, event.data);
+      if (actionCode === 2) response = await this.commentService.delete(event.user, event.data);
+      if (actionCode === 3) response = await this.commentService.query(event.data);
+      if (actionCode === 4) response = await this.commentService.count(event.data);
+    }
+
+    // 其他模块逻辑...
+
+    this.sendResponse(clientId, { success: true, data: response });
   } catch (error) {
-    // 处理错误
-    this.sendResponse(clientId, {
-      success: false,
-      error: error.message
-    });
+    this.sendResponse(clientId, { success: false, error: error.message });
   }
 }
 ```
+
+
+## 四、规则优势
+1. **语义统一**：所有模块共享“1=更新、2=删除、3=查询、4=统计”的子码逻辑，开发无需记忆各模块特殊编码。
+2. **扩展性强**：新增模块时，直接按“模块区间+子码语义”生成编码（如700=消息创建、701=消息更新），无需重新定义规则。
+3. **故障排查高效**：通过 `code` 码即可快速定位业务模块（如6xx=点赞）和操作类型（如603=查询点赞），简化日志分析。

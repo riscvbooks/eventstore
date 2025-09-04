@@ -1,8 +1,10 @@
 const WebSocket = require('ws');
 const httpfile = require('./httpfile');
-const EventService = require('./db/events');
-const UserService = require('./db/users');
+const EventService      = require('./db/events');
+const UserService       = require('./db/users');
 const PermissionService = require('./db/permissions');
+const CommentService    = require('./db/comments');
+const LikeService       = require('./db/likes');
 const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
@@ -49,9 +51,11 @@ class WebSocketServer {
     this.wss = null;
     this.subscriptions = {};
     this.nextSubscriptionId = 1;
-    this.eventService = new EventService();
-    this.userService = new UserService();
+    this.eventService      = new EventService();
+    this.userService       = new UserService();
     this.permissionService = new PermissionService();
+    this.commentService    = new CommentService();
+    this.likeService       = new LikeService();
     this.uploadDir = path.join(__dirname, '../', config.uploaddir || 'uploads');
     this.ensureUploadDirExists();
   }
@@ -93,6 +97,7 @@ class WebSocketServer {
       // 解析JSON消息
       const parsedMessage = JSON.parse(message);
       const event = parsedMessage[2];
+      if (event == null) return;
       if (Array.isArray(event)){
         for (const subEvent of event) {
            
@@ -147,7 +152,19 @@ class WebSocketServer {
             if (event.code === 400) {
               response = await this.handleFileUpload(ws, parsedMessage);
             }
+          } else if (event.code >= 500 && event.code < 600) {
+            if (event.code === 500 ){
+              response =  await this.commentService.createComment(event);
+              ws.send(JSON.stringify(["RESP", parsedMessage[1], response]));
+            }
+
+          } else if (event.code >= 600 && event.code < 700) {
+            if (event.code === 600 ){
+              response =  await this.likeService.createLike(event);
+              ws.send(JSON.stringify(["RESP", parsedMessage[1], response]));
+            }
           }
+
           break;
         case 'R':
           if (event.code >= 100 && event.code < 200) {
@@ -197,6 +214,31 @@ class WebSocketServer {
  
 
               response = await this.permissionService.readPermissions(event);
+              
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+          } else if (event.code >= 500 && event.code < 600) {
+            if (event.code === 503 ){
+              response =  await this.commentService.readComments(event);
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+            if (event.code === 504) {
+              // 查询用户信息
+
+              response = await this.commentService.counts(event);
+              
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+
+          } else if (event.code >= 600 && event.code < 700) {
+            if (event.code === 603 ){
+              response =  await this.likeService.readLikes(event);
+              this.handleResp(ws, parsedMessage[1], response);
+            }
+            if (event.code === 604) {
+              // 查询用户信息
+
+              response = await this.likeService.counts(event);
               
               this.handleResp(ws, parsedMessage[1], response);
             }

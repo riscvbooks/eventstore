@@ -9,7 +9,9 @@ module.exports = {
     collections:{
       events:'events',
       users:'users',
-      permissions: 'permissions' // 权限
+      permissions: 'permissions', // 权限
+      comments: 'comments',
+      likes: 'likes'
     },
     options: {
       maxPoolSize: 10,
