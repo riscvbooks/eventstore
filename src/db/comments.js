@@ -27,9 +27,9 @@ class CommentService {
 
     // 时间校验（5分钟容忍度）
     const clientTime = new Date(comment.created_at);
-    const timeDiff = Math.abs(Date.now() - clientTime.getTime());
-    if (timeDiff > 5 * 60 * 1000) {
-      return { code: 500, message: '时间与服务器差距过大' };
+    const timeDiff = Math.abs(Math.floor(Date.now() / 1000) - clientTime);
+    if (timeDiff > 5 * 60 * 1000) { // 5分钟容忍度
+      return {code:500,message:'时间和服务器差距太大'}
     }
 
     // 用户权限校验
