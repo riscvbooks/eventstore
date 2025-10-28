@@ -4,7 +4,7 @@ module.exports = {
  // 数据库连接配置
   database: {
     uri: 'mongodb://localhost:27017',
-    dbName: 'eventstore',
+    dbName: 'rvbstore',
     // 连接池配置
     collections:{
       events:'events',
@@ -19,7 +19,7 @@ module.exports = {
     }
   },
   admin:{
-    pubkey:"2bc571b20f7dc9734aeca6a1b0c6e5990465f7e19422ecfa8b8cb38f0cec26c1",
-    email:"admin@es.com"
+    pubkey:"",
+    email:"admin@riscvbooks.com"
   },//pubkey
 };
