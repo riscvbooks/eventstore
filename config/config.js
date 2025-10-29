@@ -1,3 +1,9 @@
+
+const {    PERMISSIONS,
+    defaultPermissionConfigs
+} = require("eventstore-tools/src/common");
+
+
 // config.js
 module.exports = {
   uploaddir:"uploads", 
@@ -22,4 +28,5 @@ module.exports = {
     pubkey:"",
     email:"admin@riscvbooks.com"
   },//pubkey
+  defaultPermission:defaultPermissionConfigs.user,
 };
