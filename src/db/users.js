@@ -107,6 +107,7 @@ class UserService {
 
     if (event.offset) offset = event.offset;
     if (event.limit ) limit = event.offset;
+    if (event.data && event.data.pubkeys) query['user']  = {$in:event.data.pubkeys}
 
     return await db.collection(this.collections.users)
       .find(query)
